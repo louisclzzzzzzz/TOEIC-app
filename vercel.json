@@ -1,0 +1,9 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "rewrites": [
+    {
+      "source": "/api/mistral/:path*",
+      "destination": "/api/mistral/[...path]?upstream=:path*"
+    }
+  ]
+}

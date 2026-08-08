@@ -25,11 +25,24 @@ const STRIPPED = new Set(['content-encoding', 'content-length', 'transfer-encodi
 
 export default async function handler(req: Request): Promise<Response> {
   const url = new URL(req.url);
-  const path = url.pathname.replace(/^\/api\/mistral/, '');
 
-  if (!path.startsWith('/')) {
+  // `upstream` est posé par la réécriture de `vercel.json` : hors Next.js, un
+  // fichier `[...path]` ne capture qu'un seul segment, ce qui casserait
+  // /v1/chat/completions. On lit donc le chemin explicitement, avec repli sur
+  // l'URL d'origine (proxy Vite en dev, appel direct au fichier).
+  const rewritten = url.searchParams.get('upstream');
+  const path = rewritten
+    ? `/${rewritten.replace(/^\/+/, '')}`
+    : url.pathname.replace(/^\/api\/mistral/, '');
+
+  if (path === '/' || !path.startsWith('/')) {
     return json({ message: 'Chemin invalide.' }, 400);
   }
+
+  // `upstream` est notre paramètre de routage : il ne doit pas partir chez Mistral.
+  const query = new URLSearchParams(url.search);
+  query.delete('upstream');
+  const search = query.toString();
 
   // La clé du client est prioritaire : elle traduit un choix explicite dans les
   // réglages. La clé serveur prend le relais quand le champ est laissé vide.
@@ -53,7 +66,7 @@ export default async function handler(req: Request): Promise<Response> {
 
   let upstream: Response;
   try {
-    upstream = await fetch(`${UPSTREAM}${path}${url.search}`, {
+    upstream = await fetch(`${UPSTREAM}${path}${search ? `?${search}` : ''}`, {
       method: req.method,
       headers,
       // GET/HEAD n'ont pas de corps ; le passer ferait échouer `fetch`.

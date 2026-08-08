@@ -261,6 +261,18 @@ La clé peut venir de deux endroits, dans cet ordre :
 clé — pour que le client sache s'il peut proposer les voix Mistral avec un champ
 vide. Sans cette sonde, l'app désactiverait la synthèse à tort.
 
+Pour installer la clé côté serveur :
+
+```bash
+vercel env add MISTRAL_API_KEY production   # colle la clé quand c'est demandé
+vercel --prod                               # un redéploiement la rend active
+```
+
+À noter : `vercel.json` réécrit `/api/mistral/:path*` vers `api/mistral-proxy.ts`
+en passant le chemin amont dans `upstream`. Une route dynamique `[...path]` ne
+convient pas — hors Next.js, elle ne capture qu'un seul segment, ce qui met
+`/v1/chat/completions` en 404.
+
 ## Étendre la banque
 
 La banque est découpée **par partie** : `src/data/part1.ts` … `part7.ts`, recollés

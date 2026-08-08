@@ -86,7 +86,14 @@ export function clearState(): void {
   localStorage.removeItem(KEY);
 }
 
-/** Export JSON (sauvegarde manuelle avant un reset, transfert vers un autre appareil). */
+/**
+ * Export JSON (sauvegarde manuelle avant un reset, transfert vers un autre appareil).
+ *
+ * La clé API est retirée : ce fichier finit souvent dans un dossier partagé, une
+ * pièce jointe ou un dépôt Git, et une clé Mistral en clair n'y a rien à faire.
+ * À la réimportation, il suffit de la ressaisir dans les réglages.
+ */
 export function exportState(state: AppState): string {
-  return JSON.stringify(state, null, 2);
+  const { mistralApiKey: _omitted, ...settings } = state.settings;
+  return JSON.stringify({ ...state, settings }, null, 2);
 }

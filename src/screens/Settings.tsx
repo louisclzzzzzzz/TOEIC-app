@@ -13,6 +13,7 @@ import { playLines } from '../lib/tts';
 import { cacheStats, clearClips } from '../lib/audioCache';
 import { allSets } from '../lib/selection';
 import { exportState } from '../lib/storage';
+import { generatedToSource } from '../lib/seedExport';
 import { loadVoices, voiceSummary } from '../lib/speech';
 import { probeServerKey } from '../lib/mistralApi';
 import { Page } from '../components/Shell';
@@ -182,6 +183,16 @@ export function Settings() {
         {state.generated.length > 0 && (
           <div className="mt-5">
             <p className="eyebrow mb-2">Questions générées · {state.generated.length}</p>
+            <button
+              onClick={() => downloadSource(generatedToSource(state.generated, allSets(state)))}
+              className="btn-quiet mb-3 w-full"
+            >
+              <Download size={16} /> Exporter en TypeScript pour le dépôt
+            </button>
+            <p className="mb-3 text-[12px] leading-relaxed text-faint">
+              Produit les blocs à coller dans <code>src/data/partN.ts</code>, renumérotés à la
+              suite. C’est le seul moyen de les garder : sinon elles restent dans ce navigateur.
+            </p>
             <div className="divide-y divide-line-soft">
               {state.generated.map((s) => (
                 <div key={s.id} className="flex items-center gap-3 py-2.5">
@@ -617,6 +628,16 @@ function GenerateSection() {
       </p>
     </Section>
   );
+}
+
+/** Télécharge les blocs TypeScript à coller dans `src/data/partN.ts`. */
+function downloadSource(content: string) {
+  const url = URL.createObjectURL(new Blob([content], { type: 'text/plain' }));
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `questions-generees-${new Date().toISOString().slice(0, 10)}.ts`;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 function downloadJson(content: string) {

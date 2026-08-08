@@ -273,6 +273,28 @@ en passant le chemin amont dans `upstream`. Une route dynamique `[...path]` ne
 convient pas — hors Next.js, elle ne capture qu'un seul segment, ce qui met
 `/v1/chat/completions` en 404.
 
+## Des questions générées vers le dépôt
+
+Une question générée par IA atterrit dans `state.generated`, donc dans le
+`localStorage` du navigateur : elle disparaît à la remise à zéro, ne suit pas
+d'un appareil à l'autre et n'est pas déployée. Pour qu'elle compte vraiment,
+elle doit rejoindre `src/data/partN.ts`.
+
+Le trajet complet :
+
+1. `npm run dev`, clé Mistral dans les réglages, générer les questions ;
+2. **Réglages → Données → « Exporter en TypeScript pour le dépôt »** ;
+3. coller chaque bloc à la fin du fichier de la partie indiquée en commentaire ;
+4. `npm run check`, puis commit.
+
+L'export renumérote les ids (`ai-5-lz3k9x` → `p5-41`, à la suite de ce qui
+existe déjà) et bascule `source: 'ai'` en `'seed'`. `npm run check` relit ce que
+l'émetteur produit et le compare à la source : un export qui perdrait des
+données échouerait au lieu de passer inaperçu.
+
+Relis toujours ce que le modèle a écrit avant de committer — c'est du contenu
+pédagogique, et la validation ne juge que la forme.
+
 ## Étendre la banque
 
 La banque est découpée **par partie** : `src/data/part1.ts` … `part7.ts`, recollés
@@ -308,7 +330,8 @@ src/
     audioCache.ts       cache IndexedDB des clips synthétisés
     mistralApi.ts       accès HTTP partagé (proxy dev, erreurs lisibles)
     mistral.ts          génération IA + validation stricte du JSON
-    storage.ts          localStorage (chargement défensif, export JSON)
+    storage.ts          localStorage (chargement défensif, export JSON sans la clé)
+    seedExport.ts       questions générées → source TypeScript pour le dépôt
   components/           Scene (SVG Part 1), AudioPlayer, Passage, chart, primitives
   screens/              Home, PracticeSetup, Session, Results, Dashboard, Journal,
                         Vocab, VocabReview, ExamIntro, Settings

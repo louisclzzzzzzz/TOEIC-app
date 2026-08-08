@@ -13,7 +13,8 @@ import { buildExamSession, examDurationSec, partWeights, buildMixedSession, buil
 import { QUESTION_BANK } from '../src/data/questions';
 import { addVocabHints, reviewVocab, vocabId, vocabStats } from '../src/lib/vocab';
 import { DEFAULT_STATE } from '../src/lib/storage';
-import type { Attempt, AppState } from '../src/types';
+import { nextIndex, renumber, setToSource } from '../src/lib/seedExport';
+import type { Attempt, AppState, QuestionSet } from '../src/types';
 
 let failures = 0;
 const check = (label: string, cond: boolean, extra?: unknown) => {
@@ -60,6 +61,52 @@ check(
   ),
 );
 console.log(`  → ${QUESTION_BANK.length} blocs, ${ids.length} questions`);
+
+// L'export TypeScript est le seul chemin entre une question générée et le
+// dépôt : s'il produit du code faux, la perte est silencieuse. On relit donc ce
+// qu'il écrit et on le compare à la source.
+console.log('\n— Export vers le dépôt —');
+const sample = ['p1-01', 'p2-01', 'p3-01', 'p6-01', 'p7-02'].map(
+  (id) => QUESTION_BANK.find((s) => s.id === id)!,
+);
+const emitted = sample.map(setToSource).join('\n');
+let reparsed: QuestionSet[] = [];
+try {
+  // Les littéraux émis sont du JS valide : on peut les relire tels quels.
+  reparsed = new Function(`return [\n${emitted}\n];`)() as QuestionSet[];
+  check('le code émis se relit sans erreur', reparsed.length === sample.length);
+} catch (err) {
+  check('le code émis se relit sans erreur', false, err);
+}
+// L'émetteur écrit les clés dans un ordre fixe, là où les fichiers rédigés à la
+// main varient (`speaker, voice, text` ici, `text, voice` là). On compare donc
+// les données, pas leur mise en forme.
+const stable = (value: unknown): unknown =>
+  Array.isArray(value)
+    ? value.map(stable)
+    : value && typeof value === 'object'
+      ? Object.fromEntries(
+          Object.entries(value as Record<string, unknown>)
+            .sort(([a], [b]) => a.localeCompare(b))
+            .map(([k, v]) => [k, stable(v)]),
+        )
+      : value;
+
+check(
+  'aucune donnée perdue à l’aller-retour',
+  JSON.stringify(stable(reparsed)) ===
+    JSON.stringify(stable(sample.map((s) => ({ ...s, source: 'seed' })))),
+);
+check(
+  'les trous de Part 6 survivent au gabarit multiligne',
+  reparsed.find((s) => s.part === 6)!.passages![0].body.includes('___(4)___'),
+);
+const renumbered = renumber(sample[1], 41);
+check(
+  'la renumérotation suit la convention pN-XX',
+  renumbered.id === 'p2-41' && renumbered.items[0].id === 'p2-41-q1',
+);
+check('le prochain index part du dernier utilisé', nextIndex(QUESTION_BANK, 5) === 41);
 
 console.log('\n— Vocabulaire —');
 const allHints = QUESTION_BANK.flatMap((s) => s.items.flatMap((i) => i.vocab ?? []));

@@ -239,13 +239,27 @@ d'entrer dans la banque** (nombre de propositions selon la partie, lettre de ré
 présente dans les choix, explication non vide, script audio pour le listening,
 passage pour le reading) : un set mal formé est rejeté avec un message d'erreur.
 
-Deux limites assumées :
+## Le proxy `/api/mistral`
 
-- L'API Mistral n'envoie pas d'en-têtes CORS, donc l'appel passe par le **proxy du
-  serveur de dev** (`/api/mistral` dans `vite.config.ts`). La génération ne
-  fonctionne donc qu'en `npm run dev`, pas sur un build statique servi tel quel.
-- La clé est stockée en clair dans `localStorage` et voyage jusqu'au proxy local.
-  Acceptable pour un usage perso sur sa propre machine ; à ne pas déployer en ligne.
+L'API Mistral n'envoie pas d'en-têtes CORS : un appel direct depuis le navigateur
+est bloqué. **Tout passe donc par `/api/mistral`**, jamais par `api.mistral.ai` :
+
+| Environnement | Qui relaie |
+|---|---|
+| `npm run dev` | le proxy du serveur Vite (`vite.config.ts`) |
+| production | une fonction serverless edge (`api/mistral/[...path].ts`) |
+
+La clé peut venir de deux endroits, dans cet ordre :
+
+1. **Celle des réglages**, saisie par l'utilisateur et gardée dans `localStorage`
+   de son navigateur. Elle voyage dans l'en-tête `Authorization` jusqu'au proxy.
+2. **`MISTRAL_API_KEY`**, variable d'environnement de l'hébergeur. Le proxy
+   l'injecte lui-même : elle ne quitte jamais le serveur et le champ des réglages
+   peut rester vide. C'est le mode à privilégier pour une app déployée.
+
+`api/mistral-status.ts` répond `{ serverKey: boolean }` — sans jamais renvoyer la
+clé — pour que le client sache s'il peut proposer les voix Mistral avec un champ
+vide. Sans cette sonde, l'app désactiverait la synthèse à tort.
 
 ## Étendre la banque
 

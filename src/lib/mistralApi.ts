@@ -2,13 +2,16 @@
  * Accès bas niveau à l'API Mistral, partagé par la génération de questions
  * (chat) et la synthèse vocale (audio/speech).
  *
- * En dev, on passe par le proxy Vite : l'API ne renvoie pas d'en-têtes CORS,
- * donc un appel navigateur direct est bloqué. Voir `vite.config.ts`.
+ * On ne parle JAMAIS à `api.mistral.ai` directement : l'API ne renvoie pas
+ * d'en-têtes CORS, donc un appel navigateur serait bloqué. Tout passe par
+ * `/api/mistral` — le proxy Vite en dev (`vite.config.ts`), une fonction
+ * serverless en production (`api/mistral/[...path].ts`).
+ *
+ * Ce proxy permet aussi de garder la clé côté serveur : si `MISTRAL_API_KEY`
+ * est définie sur l'hébergeur, l'app fonctionne avec le champ « Clé API » vide.
  */
 
-// `import.meta.env` n'existe qu'avec Vite : l'optional chaining garde le module
-// importable depuis Node (scripts/check.ts) sans planter au chargement.
-const BASE = import.meta.env?.DEV ? '/api/mistral' : 'https://api.mistral.ai';
+const BASE = '/api/mistral';
 
 export class MistralError extends Error {
   constructor(
@@ -30,7 +33,11 @@ export async function mistralFetch(
   apiKey: string,
   init: RequestInit = {},
 ): Promise<Response> {
-  if (!apiKey.trim()) {
+  const key = apiKey.trim();
+
+  // Pas de clé côté client ⇒ on tente quand même : le proxy prendra le relais
+  // avec `MISTRAL_API_KEY` s'il en a une, et répondra 401 sinon.
+  if (!key && !serverKey) {
     throw new MistralError('Clé API Mistral absente (à renseigner dans Réglages).');
   }
 
@@ -40,15 +47,16 @@ export async function mistralFetch(
       ...init,
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey.trim()}`,
+        ...(key ? { Authorization: `Bearer ${key}` } : {}),
         ...init.headers,
       },
     });
   } catch (err) {
-    // Cause la plus fréquente hors `npm run dev` : le proxy n'existe pas.
+    // Cause la plus fréquente : le proxy n'est pas là (build statique servi tel
+    // quel, ou fonction serverless non déployée).
     if (err instanceof DOMException && err.name === 'AbortError') throw err;
     throw new MistralError(
-      "Appel réseau impossible. L'API Mistral exige le proxy du serveur de dev (`npm run dev`).",
+      "Appel réseau impossible : le proxy /api/mistral n'a pas répondu.",
     );
   }
 
@@ -64,4 +72,36 @@ export async function mistralFetch(
   }
 
   return res;
+}
+
+/* ------------------------------------------------------------------ */
+/* Clé côté serveur                                                    */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Vrai quand l'hébergeur fournit la clé (variable `MISTRAL_API_KEY`).
+ *
+ * Drapeau synchrone : il est lu à chaque décision « peut-on utiliser Mistral ? »,
+ * y compris pendant un rendu React. Il reste `false` tant que la sonde n'a pas
+ * répondu — au pire, l'app démarre sur les voix du système et bascule ensuite.
+ */
+let serverKey = false;
+let probe: Promise<boolean> | null = null;
+
+export const hasServerKey = (): boolean => serverKey;
+
+/** Vrai si la synthèse Mistral est possible, par la clé du client ou du serveur. */
+export const hasMistralAccess = (apiKey: string): boolean =>
+  Boolean(apiKey.trim()) || serverKey;
+
+/**
+ * Interroge `/api/mistral-status` une seule fois par chargement de page.
+ * Un échec (pas de backend, hors ligne) laisse simplement le drapeau à `false`.
+ */
+export function probeServerKey(): Promise<boolean> {
+  probe ??= fetch('/api/mistral-status')
+    .then((res) => (res.ok ? res.json() : { serverKey: false }))
+    .then((body: { serverKey?: boolean }) => (serverKey = Boolean(body.serverKey)))
+    .catch(() => false);
+  return probe;
 }

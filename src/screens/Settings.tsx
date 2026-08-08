@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import type { PartId, VoiceRole } from '../types';
-import { useApp } from '../store';
+import { useApp, useMistralAccess } from '../store';
 import { ALL_PARTS, PARTS } from '../lib/toeic';
 import { categoryStats, weakestPart } from '../lib/stats';
 import { generateSet } from '../lib/mistral';
@@ -14,6 +14,7 @@ import { cacheStats, clearClips } from '../lib/audioCache';
 import { allSets } from '../lib/selection';
 import { exportState } from '../lib/storage';
 import { loadVoices, voiceSummary } from '../lib/speech';
+import { probeServerKey } from '../lib/mistralApi';
 import { Page } from '../components/Shell';
 import { PageTitle, ProgressBar } from '../components/ui';
 import { CheckCircle, Download, Sound, Spark, Trash } from '../components/Icons';
@@ -42,12 +43,16 @@ export function Settings() {
   const { settings } = state;
   const [systemVoices, setSystemVoices] = useState('chargement…');
   const [confirmReset, setConfirmReset] = useState(false);
+  const [serverKey, setServerKey] = useState(false);
 
   useEffect(() => {
     void loadVoices().then(() => setSystemVoices(voiceSummary()));
+    void probeServerKey().then(setServerKey);
   }, []);
 
-  const hasKey = Boolean(settings.mistralApiKey.trim());
+  const ownKey = Boolean(settings.mistralApiKey.trim());
+  // La clé de l'hébergeur suffit : le champ peut rester vide et tout marche.
+  const hasKey = ownKey || serverKey;
 
   return (
     <Page>
@@ -55,7 +60,7 @@ export function Settings() {
 
       <Section
         title="Clé API Mistral"
-        lede="Sert aux voix et à la génération de questions. Stockée uniquement dans ce navigateur."
+        lede="Sert aux voix et à la génération de questions. Stockée uniquement dans ce navigateur — inutile si le serveur en fournit déjà une."
       >
         <input
           type="password"
@@ -71,9 +76,11 @@ export function Settings() {
           style={{ color: hasKey ? 'var(--color-sage)' : 'var(--color-flame)' }}
         >
           {hasKey && <CheckCircle size={14} />}
-          {hasKey
+          {ownKey
             ? 'Clé enregistrée — les voix Mistral sont actives.'
-            : 'Sans clé, l’app se rabat sur les voix du système.'}
+            : serverKey
+              ? 'Clé fournie par le serveur — les voix Mistral sont actives, rien à saisir.'
+              : 'Sans clé, l’app se rabat sur les voix du système.'}
         </p>
       </Section>
 
@@ -286,6 +293,7 @@ function repair(current: Record<VoiceRole, string>, list: MistralVoice[]) {
 
 function MistralVoicePicker() {
   const { state, setSettings } = useApp();
+  const canUseMistral = useMistralAccess();
   const { settings } = state;
   const [voices, setVoices] = useState<MistralVoice[] | null>(null);
   const [busy, setBusy] = useState(false);
@@ -349,7 +357,7 @@ function MistralVoicePicker() {
           </div>
           <button
             onClick={() => void load()}
-            disabled={busy || !settings.mistralApiKey.trim()}
+            disabled={busy || !canUseMistral}
             className="btn-quiet mt-3 w-full"
           >
             {busy ? 'Chargement…' : 'Changer de voix'}
@@ -366,6 +374,9 @@ function MistralVoicePicker() {
 }
 
 function TestVoicesButton() {
+  // Volontairement jamais désactivé : sans accès Mistral, `playLines` retombe
+  // sur la voix du système et affiche le message correspondant — ce qui est
+  // précisément ce qu'on veut tester ici.
   const { state } = useApp();
   const { settings } = state;
   const [status, setStatus] = useState<PlayStatus>('idle');
@@ -409,6 +420,7 @@ function TestVoicesButton() {
 
 function AudioCacheSection() {
   const { state } = useApp();
+  const canUseMistral = useMistralAccess();
   const { settings } = state;
   const [stats, setStats] = useState({ count: 0, bytes: 0 });
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
@@ -477,7 +489,7 @@ function AudioCacheSection() {
       {settings.ttsEngine === 'mistral' && (
         <button
           onClick={() => void preload()}
-          disabled={!!progress || !settings.mistralApiKey.trim()}
+          disabled={!!progress || !canUseMistral}
           className="btn-quiet w-full"
         >
           <Download size={16} /> Précharger la banque · {lines.length} répliques
@@ -508,6 +520,7 @@ function AudioCacheSection() {
 
 function GenerateSection() {
   const { state, setSettings, addGenerated } = useApp();
+  const canUseMistral = useMistralAccess();
   const { settings } = state;
   const auto = weakestPart(state.attempts);
   const [part, setPart] = useState<PartId | 'auto'>('auto');
@@ -583,7 +596,7 @@ function GenerateSection() {
 
       <button
         onClick={() => void run()}
-        disabled={busy || !settings.mistralApiKey.trim()}
+        disabled={busy || !canUseMistral}
         className="btn-primary mt-4 w-full"
       >
         <Spark size={16} /> {busy ? 'Génération en cours…' : `Générer · Part ${target}`}

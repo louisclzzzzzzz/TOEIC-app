@@ -5,7 +5,7 @@
  * chargement synchrone de localStorage évite tout écran d'attente au démarrage.
  */
 
-import { createContext, useContext, useEffect, useMemo, useReducer } from 'react';
+import { createContext, useContext, useEffect, useMemo, useReducer, useState } from 'react';
 import type { ReactNode } from 'react';
 import type {
   AppState,
@@ -20,6 +20,7 @@ import type {
 import { DEFAULT_STATE, loadState, saveState } from './lib/storage';
 import { applyReview, createErrorEntry } from './lib/leitner';
 import { addVocabHints, reviewVocab } from './lib/vocab';
+import { hasServerKey, probeServerKey } from './lib/mistralApi';
 import { dayKey } from './lib/stats';
 
 interface AnswerPayload {
@@ -179,4 +180,23 @@ export function useApp(): Ctx {
   const ctx = useContext(AppContext);
   if (!ctx) throw new Error('useApp doit être utilisé dans <AppProvider>');
   return ctx;
+}
+
+/**
+ * Les fonctions Mistral sont-elles utilisables ?
+ *
+ * Deux sources possibles : la clé saisie dans les réglages, ou celle de
+ * l'hébergeur (`MISTRAL_API_KEY`), que le client découvre via une sonde. D'où
+ * ce hook plutôt qu'un simple test sur les réglages : la réponse du serveur
+ * arrive après le premier rendu et doit provoquer un re-render.
+ */
+export function useMistralAccess(): boolean {
+  const { state } = useApp();
+  const [serverKey, setServerKey] = useState(hasServerKey);
+
+  useEffect(() => {
+    void probeServerKey().then(setServerKey);
+  }, []);
+
+  return Boolean(state.settings.mistralApiKey.trim()) || serverKey;
 }

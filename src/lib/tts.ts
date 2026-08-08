@@ -15,6 +15,7 @@
 import type { AudioLine, VoiceRole } from '../types';
 import { speakLines, stopSpeech } from './speech';
 import { synthesizeAll } from './mistralTts';
+import { hasMistralAccess } from './mistralApi';
 import { stopBlockPlayback } from './blockPlayer';
 
 export type TtsEngine = 'system' | 'mistral';
@@ -108,7 +109,7 @@ export async function prepareLines(lines: AudioLine[], opts: PlayOptions): Promi
 
 /** Le moteur peut-il livrer des fichiers — et donc une barre de navigation ? */
 export const canPrepare = (opts: PlayOptions): boolean =>
-  opts.engine === 'mistral' && !!opts.apiKey.trim();
+  opts.engine === 'mistral' && hasMistralAccess(opts.apiKey);
 
 /**
  * Prépare l'audio d'un bloc sans le jouer (mise en cache).
@@ -140,7 +141,7 @@ export async function playLines(lines: AudioLine[], opts: PlayOptions): Promise<
 
   if (opts.engine !== 'mistral') return useSystem();
 
-  if (!opts.apiKey.trim()) return useSystem(NO_KEY_NOTICE);
+  if (!hasMistralAccess(opts.apiKey)) return useSystem(NO_KEY_NOTICE);
 
   // Tout le bloc est synthétisé en parallèle avant la première lecture, sinon
   // on entendrait un blanc entre chaque réplique d'une conversation.

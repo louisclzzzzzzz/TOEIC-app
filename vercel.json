@@ -3,7 +3,7 @@
   "rewrites": [
     {
       "source": "/api/mistral/:path*",
-      "destination": "/api/mistral/[...path]?upstream=:path*"
+      "destination": "/api/mistral-proxy?upstream=:path*"
     }
   ]
 }

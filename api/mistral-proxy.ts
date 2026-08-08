@@ -26,10 +26,10 @@ const STRIPPED = new Set(['content-encoding', 'content-length', 'transfer-encodi
 export default async function handler(req: Request): Promise<Response> {
   const url = new URL(req.url);
 
-  // `upstream` est posé par la réécriture de `vercel.json` : hors Next.js, un
-  // fichier `[...path]` ne capture qu'un seul segment, ce qui casserait
-  // /v1/chat/completions. On lit donc le chemin explicitement, avec repli sur
-  // l'URL d'origine (proxy Vite en dev, appel direct au fichier).
+  // Le client appelle /api/mistral/v1/... ; `vercel.json` réécrit vers ce
+  // fichier en passant le chemin amont dans `upstream`. On ne s'appuie pas sur
+  // une route dynamique `[...path]` : hors Next.js elle ne capture qu'un seul
+  // segment, ce qui mettait /v1/chat/completions en 404.
   const rewritten = url.searchParams.get('upstream');
   const path = rewritten
     ? `/${rewritten.replace(/^\/+/, '')}`

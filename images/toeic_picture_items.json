@@ -1,0 +1,136 @@
+{
+  "toeic_picture_items": [
+    {
+      "id": 1,
+      "scene": "Office meeting",
+      "image_prompt": "Photorealistic image of a modern office meeting room. Four business colleagues sit around a rectangular glass table, one man standing and pointing at a chart on a wall-mounted screen. Laptops and coffee cups are on the table. Bright daylight from large windows. Professional attire, natural lighting, high detail, wide shot.",
+      "options": [
+        {"text": "The man is writing on a whiteboard.", "difficulty": "easy", "correct": false},
+        {"text": "The colleagues are eating lunch together at the table.", "difficulty": "medium", "correct": false},
+        {"text": "The man is presenting information displayed on a screen.", "difficulty": "hard_correct", "correct": true},
+        {"text": "The man is adjusting the screen on the wall.", "difficulty": "hard", "correct": false}
+      ]
+    },
+    {
+      "id": 2,
+      "scene": "Street crossing",
+      "image_prompt": "Photorealistic street scene in a city downtown. Several pedestrians are crossing a marked crosswalk while cars wait at a red traffic light. A cyclist is riding along the side of the road. Tall buildings in the background, daytime, clear sky, high detail, eye-level shot.",
+      "options": [
+        {"text": "A cyclist is riding through a red traffic light.", "difficulty": "medium", "correct": false},
+        {"text": "Pedestrians are crossing the street at a marked crosswalk.", "difficulty": "hard_correct", "correct": true},
+        {"text": "The pedestrians are waiting to board a bus.", "difficulty": "easy", "correct": false},
+        {"text": "The cars are parked along the curb near the crosswalk.", "difficulty": "hard", "correct": false}
+      ]
+    },
+    {
+      "id": 3,
+      "scene": "Restaurant table",
+      "image_prompt": "Photorealistic image of a restaurant interior. A waiter is setting down two plates of food on a table where a couple is seated, smiling. Wine glasses and a candle are on the table. Warm ambient lighting, blurred background with other diners, high detail, medium close-up shot.",
+      "options": [
+        {"text": "The couple is paying the bill at the counter.", "difficulty": "easy", "correct": false},
+        {"text": "The waiter is serving food to the customers at the table.", "difficulty": "hard_correct", "correct": true},
+        {"text": "The waiter is pouring wine into the glasses.", "difficulty": "hard", "correct": false},
+        {"text": "The couple is reading the menu before ordering.", "difficulty": "medium", "correct": false}
+      ]
+    },
+    {
+      "id": 4,
+      "scene": "Warehouse loading",
+      "image_prompt": "Photorealistic warehouse scene. A worker wearing a safety vest and helmet is operating a forklift, lifting a pallet of boxes. Rows of shelves with stacked goods are visible in the background. Industrial lighting, concrete floor, high detail, wide angle shot.",
+      "options": [
+        {"text": "The worker is stacking boxes by hand onto a shelf.", "difficulty": "medium", "correct": false},
+        {"text": "The worker is operating a forklift to move a pallet.", "difficulty": "hard_correct", "correct": true},
+        {"text": "The worker is driving a delivery truck out of the warehouse.", "difficulty": "easy", "correct": false},
+        {"text": "The worker is unloading boxes from the forklift onto the floor.", "difficulty": "hard", "correct": false}
+      ]
+    },
+    {
+      "id": 5,
+      "scene": "Airport check-in",
+      "image_prompt": "Photorealistic image of an airport check-in counter. A staff member in uniform is handing a boarding pass to a traveler with a rolling suitcase. A queue of other travelers waits behind. Departure boards visible in the background, bright terminal lighting, high detail, medium shot.",
+      "options": [
+        {"text": "The traveler is boarding the airplane directly from the counter.", "difficulty": "easy", "correct": false},
+        {"text": "The staff member is handing a boarding pass to the traveler.", "difficulty": "hard_correct", "correct": true},
+        {"text": "The traveler is placing his suitcase on the conveyor belt.", "difficulty": "hard", "correct": false},
+        {"text": "The staff member is scanning the traveler's passport with a device.", "difficulty": "medium", "correct": false}
+      ]
+    },
+    {
+      "id": 6,
+      "scene": "Park bench",
+      "image_prompt": "Photorealistic outdoor park scene. An elderly man is sitting on a wooden bench reading a newspaper, while a jogger runs past on a paved path in the background. Trees with autumn leaves surround the area, soft natural light, high detail, wide shot.",
+      "options": [
+        {"text": "The man is feeding pigeons near the bench.", "difficulty": "medium", "correct": false},
+        {"text": "The man is sitting on a bench reading a newspaper.", "difficulty": "hard_correct", "correct": true},
+        {"text": "The jogger is sitting next to the man on the bench.", "difficulty": "hard", "correct": false},
+        {"text": "The man is watering plants near the path.", "difficulty": "easy", "correct": false}
+      ]
+    },
+    {
+      "id": 7,
+      "scene": "Conference room presentation",
+      "image_prompt": "Photorealistic image of a large conference room during a presentation. A woman stands at a podium speaking to an audience seated in rows of chairs, a projector screen behind her showing a slide with a graph. Audience members are taking notes. Professional lighting, high detail, wide shot from the back of the room.",
+      "options": [
+        {"text": "The audience members are leaving the room during the presentation.", "difficulty": "easy", "correct": false},
+        {"text": "The woman is answering questions from the seated audience.", "difficulty": "hard", "correct": false},
+        {"text": "The woman is speaking to the audience from a podium.", "difficulty": "hard_correct", "correct": true},
+        {"text": "The audience members are setting up chairs before the event.", "difficulty": "medium", "correct": false}
+      ]
+    },
+    {
+      "id": 8,
+      "scene": "Kitchen cooking",
+      "image_prompt": "Photorealistic image of a professional kitchen. A chef in a white uniform and hat is chopping vegetables on a cutting board next to a stove with pots simmering. Another cook in the background is plating a dish. Stainless steel counters, bright kitchen lighting, high detail, medium shot.",
+      "options": [
+        {"text": "The chef is washing dishes in the sink.", "difficulty": "easy", "correct": false},
+        {"text": "The chef is chopping vegetables on a cutting board.", "difficulty": "hard_correct", "correct": true},
+        {"text": "The chef is stirring a pot on the stove with a spoon.", "difficulty": "hard", "correct": false},
+        {"text": "The chef is placing vegetables into the refrigerator.", "difficulty": "medium", "correct": false}
+      ]
+    },
+    {
+      "id": 9,
+      "scene": "Construction site",
+      "image_prompt": "Photorealistic construction site scene. Two workers wearing hard hats and safety vests are assembling scaffolding next to an unfinished building. One worker is climbing a ladder while the other hands him tools. Cranes and building materials visible in the background, daytime, high detail, wide shot.",
+      "options": [
+        {"text": "The workers are painting the exterior wall of the building.", "difficulty": "medium", "correct": false},
+        {"text": "One worker is climbing down the ladder to leave the site.", "difficulty": "hard", "correct": false},
+        {"text": "One worker is climbing a ladder while another hands him tools.", "difficulty": "hard_correct", "correct": true},
+        {"text": "The workers are loading materials onto a truck.", "difficulty": "easy", "correct": false}
+      ]
+    },
+    {
+      "id": 10,
+      "scene": "Library study",
+      "image_prompt": "Photorealistic image of a library reading room. A young woman is sitting at a wooden table surrounded by open books, writing notes in a notebook. Tall bookshelves line the walls in the background, soft window light, quiet atmosphere, high detail, medium shot.",
+      "options": [
+        {"text": "The woman is returning books to the shelves.", "difficulty": "medium", "correct": false},
+        {"text": "The woman is writing notes at a table surrounded by books.", "difficulty": "hard_correct", "correct": true},
+        {"text": "The woman is searching for a book on a high shelf.", "difficulty": "easy", "correct": false},
+        {"text": "The woman is typing on a laptop instead of writing by hand.", "difficulty": "hard", "correct": false}
+      ]
+    },
+    {
+      "id": 11,
+      "scene": "Grocery store shopping",
+      "image_prompt": "Photorealistic image of a grocery store aisle. A woman is placing a bag of apples into her shopping cart from a produce display. Shelves stocked with fruits and vegetables surround her. Bright fluorescent lighting, other shoppers blurred in the background, high detail, medium shot.",
+      "options": [
+        {"text": "The woman is paying for her groceries at the checkout counter.", "difficulty": "easy", "correct": false},
+        {"text": "The woman is placing produce into her shopping cart.", "difficulty": "hard_correct", "correct": true},
+        {"text": "The woman is weighing the apples on a scale.", "difficulty": "hard", "correct": false},
+        {"text": "The woman is arranging apples on the display shelf.", "difficulty": "medium", "correct": false}
+      ]
+    },
+    {
+      "id": 12,
+      "scene": "Bus stop waiting",
+      "image_prompt": "Photorealistic image of a city bus stop. Several people are standing and sitting on a bench under a covered shelter, checking their phones and looking down the road. A bus is approaching in the distance. Overcast daylight, urban street background, high detail, wide shot.",
+      "options": [
+        {"text": "The passengers are boarding the bus through its open doors.", "difficulty": "hard", "correct": false},
+        {"text": "The people are waiting at the bus stop for the bus to arrive.", "difficulty": "hard_correct", "correct": true},
+        {"text": "The people are walking away from the bus stop toward a building.", "difficulty": "medium", "correct": false},
+        {"text": "The passengers are standing in line to buy tickets from a machine.", "difficulty": "easy", "correct": false}
+      ]
+    }
+  ]
+}

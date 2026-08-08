@@ -1,0 +1,237 @@
+@import 'tailwindcss';
+
+/* Polices auto-hébergées : aucune requête réseau, l'app démarre et fonctionne
+   hors ligne (contrainte de fond du projet). Variables = un seul fichier par
+   famille pour toutes les graisses. */
+@import '@fontsource-variable/playfair-display';
+@import '@fontsource-variable/inter';
+
+@theme {
+  /* --- Surfaces : crème chaud, contraste doux, jamais de blanc pur --- */
+  --color-cream: #f5f1e8;
+  --color-surface: #fcfaf5;
+  --color-surface-sunk: #f0ebe0;
+  --color-line: #e5dfd2;
+  --color-line-soft: #eee9dd;
+
+  /* --- Encre : bleu marine profond, jamais de noir pur --- */
+  --color-navy: #1a2238;
+  --color-ink: #333c54;
+  --color-muted: #6b7280;
+  --color-faint: #9aa1ad;
+
+  /* --- Accents fonctionnels, un par usage --- */
+  --color-flame: #c2740c; /* streak */
+  --color-tide: #2563eb; /* en révision */
+  --color-sage: #0f8a5f; /* maîtrisé */
+  --color-iris: #4f46e5; /* précision */
+  --color-clay: #b4472f; /* erreur, sourd plutôt que rouge vif */
+
+  --font-display: 'Playfair Display Variable', Georgia, 'Times New Roman', serif;
+  --font-sans: 'Inter Variable', system-ui, -apple-system, sans-serif;
+
+  --radius-card: 20px;
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    @apply bg-cream font-sans text-ink antialiased;
+    font-size: 15px;
+    line-height: 1.55;
+    padding-bottom: env(safe-area-inset-bottom);
+    overscroll-behavior-y: none;
+  }
+
+  h1,
+  h2,
+  h3 {
+    @apply font-display text-navy;
+    font-weight: 500;
+    letter-spacing: -0.015em;
+  }
+
+  button {
+    @apply select-none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Accessibilité : focus toujours visible, et animations coupées si demandé. */
+  :focus-visible {
+    outline: 2px solid var(--color-iris);
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@layer components {
+  /* Carte : blanc cassé sur crème, bordure fine, ombre à peine perceptible. */
+  .card {
+    @apply rounded-[20px] border border-line bg-surface p-5;
+    box-shadow: 0 1px 2px rgba(26, 34, 56, 0.03);
+  }
+
+  .card-tap {
+    @apply transition duration-200;
+  }
+
+  .card-tap:hover {
+    border-color: color-mix(in srgb, var(--color-navy) 18%, transparent);
+    box-shadow: 0 4px 16px rgba(26, 34, 56, 0.06);
+  }
+
+  .card-tap:active {
+    transform: scale(0.995);
+  }
+
+  /* Eyebrow : petite capitale espacée, sert à typer une section. */
+  .eyebrow {
+    @apply font-sans text-[11px] font-semibold uppercase text-faint;
+    letter-spacing: 0.12em;
+  }
+
+  .btn,
+  .btn-primary,
+  .btn-quiet {
+    @apply inline-flex items-center justify-center gap-2 rounded-full px-5 py-3 font-sans text-sm font-medium
+           transition duration-200 disabled:opacity-40;
+  }
+
+  .btn-primary {
+    @apply bg-navy text-cream;
+  }
+
+  .btn-primary:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--color-navy) 88%, white);
+  }
+
+  .btn-quiet {
+    @apply border border-line bg-surface text-ink;
+  }
+
+  .btn-quiet:hover:not(:disabled) {
+    border-color: color-mix(in srgb, var(--color-navy) 18%, transparent);
+  }
+
+  .btn:active:not(:disabled),
+  .btn-primary:active:not(:disabled),
+  .btn-quiet:active:not(:disabled) {
+    transform: scale(0.985);
+  }
+
+  /* Pastille d'icône : cercle pastel très clair, icône en trait fin. */
+  .icon-well {
+    @apply grid shrink-0 place-items-center rounded-full;
+  }
+
+  .tag {
+    @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 font-sans text-[11px] font-medium;
+  }
+
+  /* Barre de navigation audio.
+     Un `input[type=range]` natif plutôt qu'un curseur maison : on hérite du
+     glisser tactile, des flèches du clavier et du rôle ARIA sans une ligne de
+     JS. La zone de saisie fait 22px de haut pour le pouce, la piste visible
+     n'en fait que 6 — même finesse que les barres de progression de l'app.
+     `--played` est posé en style inline par le composant. */
+  .scrub {
+    width: 100%;
+    height: 22px;
+    appearance: none;
+    -webkit-appearance: none;
+    background: transparent;
+    cursor: pointer;
+    touch-action: none;
+  }
+
+  .scrub::-webkit-slider-runnable-track {
+    height: 6px;
+    border-radius: 999px;
+    background: linear-gradient(
+      to right,
+      var(--color-navy) 0 var(--played, 0%),
+      var(--color-surface-sunk) var(--played, 0%) 100%
+    );
+  }
+
+  .scrub::-webkit-slider-thumb {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 14px;
+    height: 14px;
+    margin-top: -4px;
+    border-radius: 999px;
+    background: var(--color-navy);
+    border: 2px solid var(--color-surface);
+    box-shadow: 0 1px 3px rgba(26, 34, 56, 0.22);
+    transition: transform 0.15s ease;
+  }
+
+  .scrub:active::-webkit-slider-thumb {
+    transform: scale(1.15);
+  }
+
+  .scrub::-moz-range-track {
+    height: 6px;
+    border-radius: 999px;
+    background: var(--color-surface-sunk);
+  }
+
+  .scrub::-moz-range-progress {
+    height: 6px;
+    border-radius: 999px;
+    background: var(--color-navy);
+  }
+
+  .scrub::-moz-range-thumb {
+    width: 14px;
+    height: 14px;
+    border-radius: 999px;
+    background: var(--color-navy);
+    border: 2px solid var(--color-surface);
+    box-shadow: 0 1px 3px rgba(26, 34, 56, 0.22);
+  }
+
+  .scrub:disabled {
+    cursor: default;
+    opacity: 0.45;
+  }
+
+  .field {
+    @apply w-full rounded-xl border border-line bg-surface px-3.5 py-2.5 font-sans text-sm text-navy
+           outline-none transition placeholder:text-faint;
+  }
+
+  .field:focus {
+    border-color: color-mix(in srgb, var(--color-iris) 45%, transparent);
+  }
+}
+
+/* Apparition douce des corrections et panneaux. */
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.animate-rise {
+  animation: rise 0.24s cubic-bezier(0.22, 1, 0.36, 1);
+}

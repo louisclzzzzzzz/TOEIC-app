@@ -178,8 +178,10 @@ réseau ni appel API. Mesures relevées sur ce projet :
 
 C'est pour cette raison que l'app **précharge le bloc en cours** dès l'affichage
 de la question : la synthèse se fait pendant que tu lis l'énoncé. Le bouton
-**« Précharger toute la banque »** (Réglages → Cache audio) synthétise les ~38
+**« Précharger toute la banque »** (Réglages → Cache audio) synthétise les ~195
 répliques d'un coup — ensuite, plus aucun appel réseau pendant les sessions.
+Compte quelques minutes et surveille ton quota : c'est un préchargement complet,
+pas une poignée de phrases.
 
 ### Voix système (Web Speech API)
 
@@ -247,9 +249,10 @@ Deux limites assumées :
 
 ## Étendre la banque
 
-Tout se passe dans [`src/data/questions.ts`](src/data/questions.ts) : ajouter un
-`QuestionSet` au tableau, en suivant les conventions documentées en tête de fichier
-(un bloc = un stimulus + ses questions). Puis :
+La banque est découpée **par partie** : `src/data/part1.ts` … `part7.ts`, recollés
+par [`src/data/questions.ts`](src/data/questions.ts), qui documente les conventions
+de rédaction en tête de fichier. Pour étendre : ajouter un `QuestionSet` à la fin du
+fichier de la partie concernée (un bloc = un stimulus + ses questions). Puis :
 
 ```bash
 npm run check
@@ -263,7 +266,9 @@ imprimé en Part 1/2, la numérotation des trous de Part 6, etc.
 
 ```
 src/
-  data/questions.ts     banque de départ (20 blocs, 34 questions, 51 mots clés)
+  data/
+    questions.ts        agrégateur + conventions de rédaction
+    part1.ts … part7.ts banque par partie (117 blocs, 220 questions, 425 mots clés)
   lib/
     toeic.ts            métadonnées des 7 parties, rythme réel
     selection.ts        construction des sessions (ciblé, mixte, révision, examen)

@@ -45,9 +45,6 @@ export function VocabReview({ onDone }: { onDone: () => void }) {
     void playLines([{ text: entry.example || entry.term, voice: 'female' }], {
       engine: settings.ttsEngine,
       rate: settings.speechRate,
-      apiKey: settings.mistralApiKey,
-      model: settings.mistralTtsModel,
-      voices: settings.mistralVoices,
     });
   };
 

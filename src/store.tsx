@@ -5,7 +5,7 @@
  * chargement synchrone de localStorage évite tout écran d'attente au démarrage.
  */
 
-import { createContext, useContext, useEffect, useMemo, useReducer, useState } from 'react';
+import { createContext, useContext, useEffect, useMemo, useReducer } from 'react';
 import type { ReactNode } from 'react';
 import type {
   AppState,
@@ -20,7 +20,6 @@ import type {
 import { DEFAULT_STATE, loadState, saveState } from './lib/storage';
 import { applyReview, createErrorEntry } from './lib/leitner';
 import { addVocabHints, reviewVocab } from './lib/vocab';
-import { hasServerKey, probeServerKey } from './lib/mistralApi';
 import { dayKey } from './lib/stats';
 
 interface AnswerPayload {
@@ -34,8 +33,6 @@ interface AnswerPayload {
 type Action =
   | { type: 'answer'; payload: AnswerPayload }
   | { type: 'settings'; payload: Partial<Settings> }
-  | { type: 'addGenerated'; payload: QuestionSet }
-  | { type: 'removeGenerated'; payload: string }
   | {
       type: 'addVocab';
       payload: { hints: VocabHint[]; source?: { itemId: string; part: PartId } };
@@ -125,14 +122,8 @@ function reducer(state: AppState, action: Action): AppState {
     case 'settings':
       return { ...state, settings: { ...state.settings, ...action.payload } };
 
-    case 'addGenerated':
-      return { ...state, generated: [...state.generated, action.payload] };
-
-    case 'removeGenerated':
-      return { ...state, generated: state.generated.filter((s) => s.id !== action.payload) };
-
     case 'reset':
-      // Les réglages (clé API, vitesse de voix) survivent à une remise à zéro.
+      // Les réglages (vitesse de voix, etc.) survivent à une remise à zéro.
       return { ...DEFAULT_STATE, settings: state.settings };
   }
 }
@@ -141,8 +132,6 @@ interface Ctx {
   state: AppState;
   answer: (payload: AnswerPayload) => void;
   setSettings: (patch: Partial<Settings>) => void;
-  addGenerated: (set: QuestionSet) => void;
-  removeGenerated: (id: string) => void;
   addVocab: (hints: VocabHint[], source?: { itemId: string; part: PartId }) => void;
   reviewVocabEntry: (id: string, known: boolean) => void;
   removeVocab: (id: string) => void;
@@ -163,8 +152,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
       state,
       answer: (payload) => dispatch({ type: 'answer', payload }),
       setSettings: (patch) => dispatch({ type: 'settings', payload: patch }),
-      addGenerated: (set) => dispatch({ type: 'addGenerated', payload: set }),
-      removeGenerated: (id) => dispatch({ type: 'removeGenerated', payload: id }),
       addVocab: (hints, source) => dispatch({ type: 'addVocab', payload: { hints, source } }),
       reviewVocabEntry: (id, known) => dispatch({ type: 'reviewVocab', payload: { id, known } }),
       removeVocab: (id) => dispatch({ type: 'removeVocab', payload: id }),
@@ -180,23 +167,4 @@ export function useApp(): Ctx {
   const ctx = useContext(AppContext);
   if (!ctx) throw new Error('useApp doit être utilisé dans <AppProvider>');
   return ctx;
-}
-
-/**
- * Les fonctions Mistral sont-elles utilisables ?
- *
- * Deux sources possibles : la clé saisie dans les réglages, ou celle de
- * l'hébergeur (`MISTRAL_API_KEY`), que le client découvre via une sonde. D'où
- * ce hook plutôt qu'un simple test sur les réglages : la réponse du serveur
- * arrive après le premier rendu et doit provoquer un re-render.
- */
-export function useMistralAccess(): boolean {
-  const { state } = useApp();
-  const [serverKey, setServerKey] = useState(hasServerKey);
-
-  useEffect(() => {
-    void probeServerKey().then(setServerKey);
-  }, []);
-
-  return Boolean(state.settings.mistralApiKey.trim()) || serverKey;
 }

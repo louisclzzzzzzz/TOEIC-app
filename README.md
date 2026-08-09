@@ -4,7 +4,9 @@ App perso de révision TOEIC **Listening & Reading**, pensée pour un mois de pr
 intensive à raison de 20-30 min par jour, en local, sans backend.
 
 Vite + React 19 + TypeScript + Tailwind v4. Persistance en `localStorage`, audio
-synthétisé par l'API Mistral (avec repli sur la Web Speech API du navigateur).
+pré-synthétisé par l'API Mistral et livré comme fichiers statiques avec le build
+(avec repli sur la Web Speech API du navigateur). L'app ne parle jamais à Mistral
+en direct : pas de clé, pas de backend, un pur site statique.
 
 ## Identité visuelle
 
@@ -57,10 +59,11 @@ sur le téléphone (même Wi-Fi, `npm run dev -- --host` puis l'IP affichée).
 
 | Commande | Effet |
 | --- | --- |
-| `npm run dev` | serveur de dev (+ proxy vers l'API Mistral) |
+| `npm run dev` | serveur de dev |
 | `npm run build` | build de production dans `dist/` |
 | `npm run check` | vérifie la logique métier et l'intégrité de la banque |
 | `npm run typecheck` | TypeScript strict |
+| `MISTRAL_API_KEY=... npm run synthesize` | synthétise l'audio manquant dans `public/audio/` |
 
 ## Les 5 modes
 
@@ -144,15 +147,21 @@ ceux qui méritent une fiche dédiée.
 
 ## Audio : deux moteurs
 
-Réglable dans **Réglages → Audio**.
+Réglable dans **Réglages → Audio**. L'app ne parle **jamais** à Mistral au
+runtime — ni pour la voix, ni pour générer des questions. Tout le contenu et
+son audio sont produits hors-ligne, en dev, puis committés dans le dépôt : le
+site déployé est entièrement statique.
 
 ### Voix Mistral (moteur par défaut)
 
-`POST /v1/audio/speech`, modèle `voxtral-mini-tts-2603`. Nettement plus naturel
-que les voix système, et surtout **identique d'un appareil à l'autre** — ce que
-la Web Speech API ne garantit pas du tout.
+Les clips sont pré-synthétisés par `POST /v1/audio/speech` (modèle
+`voxtral-mini-tts-2603`) via `scripts/synthesize-audio.ts`, puis livrés comme
+fichiers statiques dans `public/audio/`. Nettement plus naturel que les voix
+système, et surtout **identique d'un appareil à l'autre** — ce que la Web
+Speech API ne garantit pas du tout, et sans le moindre appel réseau vers
+Mistral une fois le build fait.
 
-Voix par défaut, avec leur `slug` (accepté tel quel comme `voice_id`) :
+Voix fixes, une par rôle (`src/lib/voices.ts`) :
 
 | Rôle | Voix | Accent |
 | --- | --- | --- |
@@ -167,21 +176,12 @@ rapproche l'entraînement des conditions réelles. Les variantes émotionnelles
 (Sad, Angry, Excited…) sont écartées au profit des variantes `neutral`, plus
 proches du ton des enregistrements d'examen.
 
-**Cache** : chaque réplique synthétisée est stockée en IndexedDB et rejouée sans
-réseau ni appel API. Mesures relevées sur ce projet :
-
-| | latence | poids |
-| --- | --- | --- |
-| une réplique courte | ~1,3 s | ~20 Ko |
-| un monologue de Part 4 | ~4,1 s | ~190 Ko |
-| **rejeu depuis le cache** | **~1 ms** | — |
-
-C'est pour cette raison que l'app **précharge le bloc en cours** dès l'affichage
-de la question : la synthèse se fait pendant que tu lis l'énoncé. Le bouton
-**« Précharger toute la banque »** (Réglages → Cache audio) synthétise les ~195
-répliques d'un coup — ensuite, plus aucun appel réseau pendant les sessions.
-Compte quelques minutes et surveille ton quota : c'est un préchargement complet,
-pas une poignée de phrases.
+**Résolution des clips** : le nom de fichier est un hash SHA-256 du couple
+`voix|texte` (`src/lib/staticAudio.ts` côté client, même calcul côté script).
+Pas de manifeste à tenir à jour — le client retrouve le fichier tout seul, et un
+même texte relu par la même voix retombe sur le même clip. Les navigateurs
+mettent ces fichiers en cache HTTP normalement (`vercel.json` les sert en
+`immutable`, le hash change si le texte change).
 
 ### Voix système (Web Speech API)
 
@@ -198,8 +198,8 @@ cours depuis son début. Une fois la réponse validée, chaque ligne de la
 transcription devient cliquable et rejoue exactement ce passage ; la réplique en
 cours de lecture est surlignée.
 
-L'API synthétise **une réplique à la fois** : une conversation arrive en quatre
-ou cinq fichiers, pas en un seul. Plutôt que de les concaténer — l'en-tête du
+Les clips sont **un fichier par réplique** : une conversation arrive en quatre ou
+cinq fichiers, pas en un seul. Plutôt que de les concaténer — l'en-tête du
 premier MP3 annoncerait alors une durée fausse, donc une barre fausse —
 `lib/blockPlayer.ts` mesure chaque clip et tient une **timeline virtuelle**
 par-dessus : chercher la seconde 42, c'est trouver le clip qui la contient et s'y
@@ -214,101 +214,53 @@ le dit dans le message de repli.
 
 ### Règles communes
 
-- **Aucune erreur audio ne bloque une session** : clé absente, quota dépassé,
-  réseau coupé → bascule automatique sur la voix système, avec un message.
+- **Aucune erreur audio ne bloque une session** : clip manquant, réseau coupé →
+  bascule automatique sur la voix système, avec un message.
 - La première lecture demande un **appui sur ▶** (les navigateurs bloquent l'audio
   sans geste utilisateur). Les suivantes démarrent seules si la lecture auto est active.
 - La vitesse (0.95× ≈ rythme examen) s'applique aux deux moteurs.
 - Le nombre d'écoutes est affiché pour rappeler qu'à l'examen on n'entend l'audio
   qu'**une seule fois**.
 
-## Clé API Mistral
-
-Une seule clé sert à la fois à la synthèse vocale et à la génération de questions.
-Elle se colle dans **Réglages → Clé API Mistral**, tout en haut de l'écran.
-Sans clé, l'app fonctionne quand même : elle bascule sur les voix du système.
-
-## Génération de questions (Mistral)
-
-Dans **Réglages → Générer de nouvelles questions** : choisir la
-partie (ou laisser « Auto », qui cible la partie la plus faible et transmet au modèle
-les catégories les plus ratées).
-
-Le modèle répond en `response_format: json_object`. La réponse est **validée avant
-d'entrer dans la banque** (nombre de propositions selon la partie, lettre de réponse
-présente dans les choix, explication non vide, script audio pour le listening,
-passage pour le reading) : un set mal formé est rejeté avec un message d'erreur.
-
-## Le proxy `/api/mistral`
-
-L'API Mistral n'envoie pas d'en-têtes CORS : un appel direct depuis le navigateur
-est bloqué. **Tout passe donc par `/api/mistral`**, jamais par `api.mistral.ai` :
-
-| Environnement | Qui relaie |
-|---|---|
-| `npm run dev` | le proxy du serveur Vite (`vite.config.ts`) |
-| production | une fonction serverless edge (`api/mistral/[...path].ts`) |
-
-La clé peut venir de deux endroits, dans cet ordre :
-
-1. **Celle des réglages**, saisie par l'utilisateur et gardée dans `localStorage`
-   de son navigateur. Elle voyage dans l'en-tête `Authorization` jusqu'au proxy.
-2. **`MISTRAL_API_KEY`**, variable d'environnement de l'hébergeur. Le proxy
-   l'injecte lui-même : elle ne quitte jamais le serveur et le champ des réglages
-   peut rester vide. C'est le mode à privilégier pour une app déployée.
-
-`api/mistral-status.ts` répond `{ serverKey: boolean }` — sans jamais renvoyer la
-clé — pour que le client sache s'il peut proposer les voix Mistral avec un champ
-vide. Sans cette sonde, l'app désactiverait la synthèse à tort.
-
-Pour installer la clé côté serveur :
+## Synthétiser l'audio (`scripts/synthesize-audio.ts`)
 
 ```bash
-vercel env add MISTRAL_API_KEY production   # colle la clé quand c'est demandé
-vercel --prod                               # un redéploiement la rend active
+MISTRAL_API_KEY=... npm run synthesize
 ```
 
-À noter : `vercel.json` réécrit `/api/mistral/:path*` vers `api/mistral-proxy.ts`
-en passant le chemin amont dans `upstream`. Une route dynamique `[...path]` ne
-convient pas — hors Next.js, elle ne capture qu'un seul segment, ce qui met
-`/v1/chat/completions` en 404.
-
-## Des questions générées vers le dépôt
-
-Une question générée par IA atterrit dans `state.generated`, donc dans le
-`localStorage` du navigateur : elle disparaît à la remise à zéro, ne suit pas
-d'un appareil à l'autre et n'est pas déployée. Pour qu'elle compte vraiment,
-elle doit rejoindre `src/data/partN.ts`.
-
-Le trajet complet :
-
-1. `npm run dev`, clé Mistral dans les réglages, générer les questions ;
-2. **Réglages → Données → « Exporter en TypeScript pour le dépôt »** ;
-3. coller chaque bloc à la fin du fichier de la partie indiquée en commentaire ;
-4. `npm run check`, puis commit.
-
-L'export renumérote les ids (`ai-5-lz3k9x` → `p5-41`, à la suite de ce qui
-existe déjà) et bascule `source: 'ai'` en `'seed'`. `npm run check` relit ce que
-l'émetteur produit et le compare à la source : un export qui perdrait des
-données échouerait au lieu de passer inaperçu.
-
-Relis toujours ce que le modèle a écrit avant de committer — c'est du contenu
-pédagogique, et la validation ne juge que la forme.
+Parcourt toute la banque (`src/data/partN.ts`), déduplique les répliques par
+`(voix, texte)`, et synthétise celles qui n'ont pas encore de fichier dans
+`public/audio/` — idempotent, donc ajouter des questions à la banque puis
+relancer la commande ne resynthétise que le nouveau contenu. Le script parle
+directement à `api.mistral.ai` (un script Node n'a pas le problème CORS du
+navigateur), écrit les `.mp3`, puis affiche un résumé (synthétisées / échecs /
+déjà présentes, poids total). `public/audio/` est committé dans le dépôt : c'est
+ce qui rend l'audio disponible dans l'app déployée, sans clé ni backend.
 
 ## Étendre la banque
 
 La banque est découpée **par partie** : `src/data/part1.ts` … `part7.ts`, recollés
 par [`src/data/questions.ts`](src/data/questions.ts), qui documente les conventions
 de rédaction en tête de fichier. Pour étendre : ajouter un `QuestionSet` à la fin du
-fichier de la partie concernée (un bloc = un stimulus + ses questions). Puis :
+fichier de la partie concernée (un bloc = un stimulus + ses questions) — le contenu
+se rédige directement dans le dépôt, il n'y a plus de génération en direct dans
+l'app. `src/lib/seedExport.ts` reste utile pour produire ce littéral TypeScript
+sans le retranscrire à la main (`setToSource`), avec la numérotation `pN-XX`
+(`nextIndex`, `renumber`) — pratique pour coller le résultat d'une session de
+rédaction assistée.
+
+Puis, dans cet ordre :
 
 ```bash
-npm run check
+npm run check                             # logique métier et intégrité de la banque
+MISTRAL_API_KEY=... npm run synthesize    # audio des nouvelles répliques
 ```
 
-qui vérifie l'unicité des ids, le nombre de propositions par partie, la présence de
-la bonne réponse dans les choix, les scripts audio du listening, l'absence d'énoncé
-imprimé en Part 1/2, la numérotation des trous de Part 6, etc.
+`npm run check` vérifie l'unicité des ids, le nombre de propositions par partie, la
+présence de la bonne réponse dans les choix, les scripts audio du listening,
+l'absence d'énoncé imprimé en Part 1/2, la numérotation des trous de Part 6, etc.
+Relis toujours le contenu avant de committer — c'est le cœur pédagogique de l'app,
+et la validation ne juge que la forme.
 
 ## Structure
 
@@ -323,20 +275,21 @@ src/
     leitner.ts          boîtes, échéances, maîtrise (noyau partagé)
     vocab.ts            carnet de vocabulaire : capture, normalisation, révision
     stats.ts            précision par partie/catégorie, série 30 jours, streak
-    tts.ts              point d'entrée audio : choix du moteur, repli, préchargement
+    tts.ts              point d'entrée audio : choix du moteur, repli
     blockPlayer.ts      timeline continue sur des clips séparés (barre de navigation)
     speech.ts           moteur système (Web Speech API) : voix, file, keep-alive Chrome
-    mistralTts.ts       moteur Mistral : /v1/audio/speech, voix préréglées
-    audioCache.ts       cache IndexedDB des clips synthétisés
-    mistralApi.ts       accès HTTP partagé (proxy dev, erreurs lisibles)
-    mistral.ts          génération IA + validation stricte du JSON
-    storage.ts          localStorage (chargement défensif, export JSON sans la clé)
-    seedExport.ts       questions générées → source TypeScript pour le dépôt
+    staticAudio.ts      moteur Mistral : résout et récupère les clips pré-synthétisés
+    voices.ts           voix Mistral fixes (une par rôle) et modèle TTS
+    storage.ts          localStorage (chargement défensif, export JSON)
+    seedExport.ts       QuestionSet → source TypeScript prête à coller dans partN.ts
   components/           Scene (SVG Part 1), AudioPlayer, Passage, chart, primitives
   screens/              Home, PracticeSetup, Session, Results, Dashboard, Journal,
                         Vocab, VocabReview, ExamIntro, Settings
   store.tsx             context + reducer, persistance automatique
-scripts/check.ts        vérifications de la logique et de la banque
+public/audio/           clips MP3 pré-synthétisés, nommés par hash (voix + texte)
+scripts/
+  check.ts               vérifications de la logique et de la banque
+  synthesize-audio.ts     synthèse Mistral → public/audio/ (hors-ligne, voir plus haut)
 ```
 
 ## Contenu et droits

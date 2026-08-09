@@ -17,9 +17,9 @@ export interface SessionBlock {
   items: QuestionItem[];
 }
 
-/** Banque complète = questions codées en dur + questions générées par IA. */
-export function allSets(state: AppState): QuestionSet[] {
-  return [...QUESTION_BANK, ...state.generated];
+/** Banque complète, codée en dur (l'app ne génère plus de questions en direct). */
+export function allSets(_state: AppState): QuestionSet[] {
+  return QUESTION_BANK;
 }
 
 export function findSet(sets: QuestionSet[], setId: string): QuestionSet | undefined {

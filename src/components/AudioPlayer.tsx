@@ -18,7 +18,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { CSSProperties, ReactNode } from 'react';
 import type { AudioLine } from '../types';
 import type { PlayStatus } from '../lib/tts';
-import { NO_KEY_NOTICE, canPrepare, playLines, prepareLines, stopPlayback } from '../lib/tts';
+import { canPrepare, playLines, prepareLines, stopPlayback } from '../lib/tts';
 import type { PlayerSnapshot } from '../lib/blockPlayer';
 import { BlockPlayer } from '../lib/blockPlayer';
 import { speechSupported } from '../lib/speech';
@@ -62,9 +62,6 @@ export function AudioPlayer({ lines, autoPlay, playKey, revealed, label }: Props
   const options = {
     engine: settings.ttsEngine,
     rate: settings.speechRate,
-    apiKey: settings.mistralApiKey,
-    model: settings.mistralTtsModel,
-    voices: settings.mistralVoices,
     onStatus: setSpeech,
     onNotice: setNotice,
   };
@@ -102,7 +99,7 @@ export function AudioPlayer({ lines, autoPlay, playKey, revealed, label }: Props
       } catch (err) {
         if (cancelled) return;
         setPreparing(false);
-        const reason = err instanceof Error ? err.message : 'Synthèse Mistral indisponible.';
+        const reason = err instanceof Error ? err.message : 'Audio pré-synthétisé indisponible.';
         setNotice(`${reason} Lecture avec la voix du système, sans navigation.`);
         if (autoPlay) speak();
         return;
@@ -111,9 +108,8 @@ export function AudioPlayer({ lines, autoPlay, playKey, revealed, label }: Props
       if (cancelled) return;
       setPreparing(false);
 
-      // Pas de clips : moteur système ou clé absente, on parle sans naviguer.
+      // Pas de clips : moteur système, on parle sans naviguer.
       if (!clips) {
-        if (opts.engine === 'mistral' && !opts.apiKey.trim()) setNotice(NO_KEY_NOTICE);
         if (autoPlay) speak();
         return;
       }

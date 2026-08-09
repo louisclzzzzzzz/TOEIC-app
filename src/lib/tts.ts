@@ -2,20 +2,20 @@
  * Point d'entrée unique de l'audio de l'app.
  *
  * Deux moteurs :
- *  - `mistral` : synthèse par l'API Mistral (voix nettement plus naturelles,
- *    accent en_US homogène d'un appareil à l'autre) ;
+ *  - `mistral` : clips pré-synthétisés par l'API Mistral et livrés comme
+ *    fichiers statiques (`public/audio/`, voir `scripts/synthesize-audio.ts`) —
+ *    voix nettement plus naturelles, accent homogène d'un appareil à l'autre ;
  *  - `system`  : Web Speech API du navigateur (gratuit, hors ligne, mais la
  *    qualité dépend entièrement des voix installées sur la machine).
  *
  * Règle d'or : une session ne doit JAMAIS se bloquer sur un problème d'audio.
- * Toute erreur Mistral (clé absente, quota, réseau) bascule automatiquement sur
- * le moteur système, en le signalant à l'utilisateur.
+ * Un clip manquant ou une erreur réseau bascule automatiquement sur le moteur
+ * système, en le signalant à l'utilisateur.
  */
 
-import type { AudioLine, VoiceRole } from '../types';
+import type { AudioLine } from '../types';
 import { speakLines, stopSpeech } from './speech';
-import { synthesizeAll } from './mistralTts';
-import { hasMistralAccess } from './mistralApi';
+import { fetchAll } from './staticAudio';
 import { stopBlockPlayback } from './blockPlayer';
 
 export type TtsEngine = 'system' | 'mistral';
@@ -25,23 +25,11 @@ export interface PlayOptions {
   engine: TtsEngine;
   /** Vitesse de lecture (0.6 à 1.2). Appliquée aux deux moteurs. */
   rate: number;
-  apiKey: string;
-  model: string;
-  /** Voix Mistral associées à chaque rôle ; vide = voix par défaut de l'API. */
-  voices: Record<VoiceRole, string>;
   gapMs?: number;
   onStatus?: (status: PlayStatus) => void;
-  /** Message à afficher : repli sur le moteur système, autoplay bloqué… */
+  /** Message à afficher : repli sur le moteur système, clip manquant… */
   onNotice?: (message: string) => void;
 }
-
-/**
- * Message unique du repli « pas de clé ». Il est affiché à deux endroits (au
- * chargement d'un bloc et au lancement d'une lecture) : une seule formulation,
- * sinon les deux divergent — ce qui est déjà arrivé.
- */
-export const NO_KEY_NOTICE =
-  'Voix du système : colle ta clé dans Réglages → Clé API Mistral pour des voix naturelles et la navigation dans l’audio.';
 
 /** Incrémenté à chaque stop/nouvelle lecture : invalide les lectures en cours. */
 let playToken = 0;
@@ -60,13 +48,6 @@ export function stopPlayback(): void {
 }
 
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
-
-/** Jobs de synthèse d'un bloc : un par réplique, avec la voix de son rôle. */
-const toJobs = (lines: AudioLine[], voices: Record<VoiceRole, string>) =>
-  lines.map((line) => ({
-    text: line.text,
-    voiceId: voices[line.voice ?? 'narrator'] || undefined,
-  }));
 
 function playBlob(blob: Blob, rate: number, token: number): Promise<'ok' | 'blocked'> {
   return new Promise((resolve) => {
@@ -92,29 +73,28 @@ function playBlob(blob: Blob, rate: number, token: number): Promise<'ok' | 'bloc
 }
 
 /**
- * Synthétise un bloc et renvoie un clip par réplique, sans rien jouer.
+ * Récupère les clips d'un bloc, sans rien jouer.
  *
  * C'est ce qui permet la barre de navigation : le lecteur a besoin des fichiers
  * en main pour les mesurer et se déplacer dedans, là où `playLines` ne fait que
  * les enchaîner.
  *
- * Renvoie `null` quand la synthèse Mistral n'est pas disponible (voix du
- * système, ou clé absente) : l'appelant retombe alors sur `playLines`, qui ne
- * sait pas naviguer mais parle quand même. Lève en cas d'échec de l'API.
+ * Renvoie `null` quand le moteur choisi n'est pas `mistral` : l'appelant
+ * retombe alors sur `playLines`, qui ne sait pas naviguer mais parle quand
+ * même. Lève en cas de clip manquant ou d'erreur réseau.
  */
 export async function prepareLines(lines: AudioLine[], opts: PlayOptions): Promise<Blob[] | null> {
   if (!canPrepare(opts) || !lines.length) return null;
-  return synthesizeAll(toJobs(lines, opts.voices), { apiKey: opts.apiKey, model: opts.model });
+  return fetchAll(lines);
 }
 
 /** Le moteur peut-il livrer des fichiers — et donc une barre de navigation ? */
-export const canPrepare = (opts: PlayOptions): boolean =>
-  opts.engine === 'mistral' && hasMistralAccess(opts.apiKey);
+export const canPrepare = (opts: PlayOptions): boolean => opts.engine === 'mistral';
 
 /**
- * Prépare l'audio d'un bloc sans le jouer (mise en cache).
+ * Prépare l'audio d'un bloc sans le jouer (mise en cache navigateur).
  * Appelé à l'affichage d'une question : pendant que l'utilisateur lit l'énoncé,
- * la synthèse se fait en tâche de fond et la lecture démarre ensuite sans délai.
+ * la récupération se fait en tâche de fond et la lecture démarre ensuite sans délai.
  */
 export async function prefetchLines(lines: AudioLine[], opts: PlayOptions): Promise<void> {
   try {
@@ -141,19 +121,14 @@ export async function playLines(lines: AudioLine[], opts: PlayOptions): Promise<
 
   if (opts.engine !== 'mistral') return useSystem();
 
-  if (!hasMistralAccess(opts.apiKey)) return useSystem(NO_KEY_NOTICE);
-
-  // Tout le bloc est synthétisé en parallèle avant la première lecture, sinon
+  // Tout le bloc est récupéré en parallèle avant la première lecture, sinon
   // on entendrait un blanc entre chaque réplique d'une conversation.
   let clips: Blob[];
   try {
     opts.onStatus?.('preparing');
-    clips = await synthesizeAll(toJobs(lines, opts.voices), {
-      apiKey: opts.apiKey,
-      model: opts.model,
-    });
+    clips = await fetchAll(lines);
   } catch (err) {
-    const reason = err instanceof Error ? err.message : 'Synthèse Mistral indisponible.';
+    const reason = err instanceof Error ? err.message : 'Audio pré-synthétisé indisponible.';
     return useSystem(`${reason} Lecture avec la voix du système.`);
   }
 

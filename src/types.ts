@@ -202,31 +202,23 @@ export interface VocabEntry {
 export interface Settings {
   /**
    * Moteur de synthèse vocale.
-   *  - `mistral` : API Mistral, voix naturelles et identiques d'un appareil à
-   *    l'autre ; nécessite une clé et le proxy du serveur de dev.
+   *  - `mistral` : clips pré-synthétisés par l'API Mistral, livrés comme
+   *    fichiers statiques avec le build (voir `scripts/synthesize-audio.ts`) —
+   *    voix naturelles, identiques d'un appareil à l'autre ;
    *  - `system`  : Web Speech API du navigateur, hors ligne et gratuite.
-   * Le repli sur `system` est automatique si Mistral échoue.
+   * Le repli sur `system` est automatique si un clip manque.
    */
   ttsEngine: 'system' | 'mistral';
-  /** Modèle TTS Mistral (ex. `voxtral-mini-tts-2603`). */
-  mistralTtsModel: string;
-  /** Voix Mistral par rôle ; chaîne vide = voix par défaut de l'API. */
-  mistralVoices: Record<VoiceRole, string>;
   /** Vitesse de la synthèse vocale (0.7 = lent, 1 = rythme examen). */
   speechRate: number;
   /** Lecture automatique de l'audio à l'arrivée sur un bloc. */
   autoPlay: boolean;
   /** Nombre de questions par session de practice. */
   sessionLength: number;
-  /** Clé API Mistral (stockée en local uniquement — voir README). */
-  mistralApiKey: string;
-  mistralModel: string;
 }
 
 export interface AppState {
   version: number;
-  /** Sets générés par IA, fusionnés avec la banque codée en dur. */
-  generated: QuestionSet[];
   attempts: Attempt[];
   errors: Record<string, ErrorEntry>;
   /** Carnet de vocabulaire, indexé par terme normalisé. */

@@ -50,6 +50,8 @@ export function Settings() {
     <Page>
       <PageTitle eyebrow="Réglages" title="Comment l’app travaille." />
 
+      <AccountSection />
+
       <Section title="Audio">
         <div className="grid grid-cols-2 gap-2.5">
           {(
@@ -145,7 +147,7 @@ export function Settings() {
 
       <Section
         title="Données"
-        lede="Tout est stocké dans ce navigateur. Rien n’est envoyé sur un serveur."
+        lede="Toujours stocké dans ce navigateur ; envoyé aussi sur le cloud si un compte est connecté ci-dessus."
       >
         <button onClick={() => downloadJson(exportState(state))} className="btn-quiet w-full">
           <Download size={16} /> Exporter ma progression
@@ -233,6 +235,82 @@ function TestVoicesButton() {
         </p>
       )}
     </>
+  );
+}
+
+const SYNC_LABEL: Record<string, string> = {
+  idle: 'En attente',
+  syncing: 'Synchronisation…',
+  synced: 'Synchronisé',
+  error: 'Échec de synchronisation',
+};
+
+/**
+ * Compte cloud : lien magique par email, pas de mot de passe. N'affiche rien
+ * si aucun projet Supabase n'est configuré (build sans les variables
+ * VITE_SUPABASE_*), pour ne pas montrer une fonctionnalité indisponible.
+ */
+function AccountSection() {
+  const { auth } = useApp();
+  const [email, setEmail] = useState('');
+  const [sending, setSending] = useState(false);
+  const [sent, setSent] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  if (!auth.configured) return null;
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSending(true);
+    setError(null);
+    const { error } = await auth.signInWithEmail(email.trim());
+    setSending(false);
+    if (error) setError(error);
+    else setSent(true);
+  };
+
+  return (
+    <Section
+      title="Compte"
+      lede="Connecte-toi pour retrouver ta progression sur un autre appareil ou après une réinstallation."
+    >
+      {auth.session ? (
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="text-[14.5px] font-medium text-navy">{auth.session.user.email}</p>
+            <p className="mt-0.5 text-[12px] text-muted">{SYNC_LABEL[auth.status]}</p>
+          </div>
+          <button onClick={() => void auth.signOut()} className="btn-quiet">
+            Se déconnecter
+          </button>
+        </div>
+      ) : sent ? (
+        <p className="text-[13px] leading-relaxed text-muted">
+          Lien envoyé à <span className="font-medium text-navy">{email}</span>. Ouvre-le depuis ce
+          navigateur pour te connecter.
+        </p>
+      ) : (
+        <form onSubmit={submit} className="flex flex-col gap-2.5">
+          <input
+            type="email"
+            required
+            placeholder="ton@email.com"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className="rounded-2xl border px-4 py-2.5 text-[14px] text-navy outline-none"
+            style={{ borderColor: 'var(--color-line)', background: 'var(--color-surface)' }}
+          />
+          <button type="submit" disabled={sending} className="btn w-full">
+            {sending ? 'Envoi…' : 'Recevoir un lien de connexion'}
+          </button>
+          {error && (
+            <p className="text-[12px]" style={{ color: 'var(--color-clay)' }}>
+              {error}
+            </p>
+          )}
+        </form>
+      )}
+    </Section>
   );
 }
 

@@ -6,7 +6,9 @@ intensive à raison de 20-30 min par jour, en local, sans backend.
 Vite + React 19 + TypeScript + Tailwind v4. Persistance en `localStorage`, audio
 pré-synthétisé par l'API Mistral et livré comme fichiers statiques avec le build
 (avec repli sur la Web Speech API du navigateur). L'app ne parle jamais à Mistral
-en direct : pas de clé, pas de backend, un pur site statique.
+en direct : pas de clé, pas de backend, un pur site statique. Une sauvegarde
+cloud optionnelle (Supabase) peut être branchée pour ne pas perdre sa
+progression entre appareils — voir [Synchronisation cloud](#synchronisation-cloud-supabase-optionnelle).
 
 ## Identité visuelle
 
@@ -64,6 +66,34 @@ sur le téléphone (même Wi-Fi, `npm run dev -- --host` puis l'IP affichée).
 | `npm run check` | vérifie la logique métier et l'intégrité de la banque |
 | `npm run typecheck` | TypeScript strict |
 | `MISTRAL_API_KEY=... npm run synthesize` | synthétise l'audio manquant dans `public/audio/` |
+
+## Synchronisation cloud (Supabase, optionnelle)
+
+Par défaut l'app reste ce qu'elle a toujours été : un pur site statique, état
+persisté en `localStorage`. Brancher Supabase ajoute une sauvegarde cloud
+(compte par email, lien magique) pour retrouver sa progression après une
+réinstallation ou sur un autre appareil — sans rien changer si les variables
+d'environnement sont absentes.
+
+1. Créer un projet sur [supabase.com](https://supabase.com) (compte gratuit).
+2. Dans le dashboard du projet → **SQL Editor**, exécuter le contenu de
+   [`scripts/supabase-schema.sql`](scripts/supabase-schema.sql) : ça crée la
+   table `progress` (une ligne par utilisateur, l'état complet en `jsonb`) et
+   les policies RLS qui isolent chaque compte.
+3. Dans **Authentication → Providers**, l'auth par email (lien magique) est
+   activée par défaut — rien à faire. Dans **Authentication → URL
+   Configuration**, ajouter l'URL de déploiement (et `http://localhost:5173`
+   en dev) aux *Redirect URLs*.
+4. Récupérer l'URL du projet et la clé `anon public` dans **Project Settings →
+   API**, et les renseigner :
+   - en local, dans un fichier `.env` (voir `.env.example`, jamais commité) ;
+   - sur Vercel, dans **Settings → Environment Variables** (`VITE_SUPABASE_URL`,
+     `VITE_SUPABASE_ANON_KEY`), puis redéployer.
+
+Une fois configuré, un bloc **Compte** apparaît en haut des Réglages. À la
+connexion, la progression locale de l'appareil est fusionnée avec celle du
+cloud (jamais écrasée — `src/lib/sync.ts`), puis chaque changement est
+repoussé vers Supabase en arrière-plan.
 
 ## Les 5 modes
 

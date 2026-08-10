@@ -330,18 +330,20 @@ export function Session({ blocks, mode, title, sectionLimits, onFinish, onExit }
               </button>
             </div>
 
-            {/* Une faute verse déjà les mots clés au carnet : on le dit, sinon
-                l'automatisme reste invisible et donc peu fiable aux yeux. */}
+            {/* Rien n'entre au carnet tout seul : on signale juste qu'il y a des
+                mots clés à ajouter, sinon leur présence reste invisible. */}
             {!correct && (item.vocab?.length ?? 0) > 0 && (
               <p className="mt-2 text-[12px] text-muted">
-                {item.vocab!.length} mot{item.vocab!.length > 1 ? 's' : ''} ajouté
-                {item.vocab!.length > 1 ? 's' : ''} au carnet.
+                {item.vocab!.length} mot{item.vocab!.length > 1 ? 's' : ''} clé
+                {item.vocab!.length > 1 ? 's' : ''} à ajouter au carnet.
               </p>
             )}
           </div>
         )}
 
-        {vocabOpen && <VocabSheet item={item} part={part} onClose={() => setVocabOpen(false)} />}
+        {vocabOpen && (
+          <VocabSheet item={item} part={part} correct={correct} onClose={() => setVocabOpen(false)} />
+        )}
       </div>
 
       {/* --- Barre d'action fixe (pouce en bas d'écran) ----------------- */}

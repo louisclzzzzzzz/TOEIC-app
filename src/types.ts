@@ -28,7 +28,7 @@ export interface Choice {
  * Rattaché à la question dès la rédaction (plutôt qu'extrait automatiquement du
  * texte) : c'est la seule façon d'obtenir un vocabulaire vraiment utile — la
  * collocation exacte, la paraphrase que le TOEIC teste, le faux-ami du piège.
- * En cas de mauvaise réponse, ces termes entrent tout seuls dans le carnet.
+ * Affiché dans la correction, un tap suffit pour verser un terme au carnet.
  */
 export interface VocabHint {
   term: string;
@@ -57,7 +57,7 @@ export interface QuestionItem {
    * question + les 3 réponses). Pour Part 3/4 le script est porté par le set.
    */
   audio?: AudioLine[];
-  /** Vocabulaire clé, versé au carnet en cas d'erreur (ou ajouté à la main). */
+  /** Vocabulaire clé, suggéré dans la correction (ajouté au carnet d'un tap). */
   vocab?: VocabHint[];
 }
 

@@ -1,9 +1,10 @@
 /**
  * Carnet de vocabulaire.
  *
- * Alimenté de deux façons :
- *  1. automatiquement — les mots clés rattachés à une question ratée ;
- *  2. manuellement — un mot ajouté pendant une session ou depuis le carnet.
+ * Toujours alimenté à la main (un tap ou une saisie) : `origin` distingue
+ * seulement le contexte de l'ajout —
+ *  - « missed » : un mot clé ajouté depuis la correction d'une question ratée ;
+ *  - « manual » : un mot saisi à la main, ici ou pendant une session.
  *
  * La planification réutilise telle quelle la mécanique Leitner du journal
  * d'erreurs (`lib/leitner.ts`), mais le paquet est distinct : on révise des

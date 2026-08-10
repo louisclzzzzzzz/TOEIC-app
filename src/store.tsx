@@ -15,6 +15,7 @@ import type {
   QuestionSet,
   SessionMode,
   Settings,
+  VocabEntry,
   VocabHint,
 } from './types';
 import { DEFAULT_STATE, loadState, saveState } from './lib/storage';
@@ -35,7 +36,11 @@ type Action =
   | { type: 'settings'; payload: Partial<Settings> }
   | {
       type: 'addVocab';
-      payload: { hints: VocabHint[]; source?: { itemId: string; part: PartId } };
+      payload: {
+        hints: VocabHint[];
+        source?: { itemId: string; part: PartId };
+        origin?: VocabEntry['origin'];
+      };
     }
   | { type: 'reviewVocab'; payload: { id: string; known: boolean } }
   | { type: 'removeVocab'; payload: string }
@@ -75,29 +80,23 @@ function reducer(state: AppState, action: Action): AppState {
         errors[item.id] = createErrorEntry(set, item, chosen, now);
       }
 
-      // 3. Vocabulaire : les mots clés d'une question ratée entrent au carnet.
-      //    Un mot déjà présent garde sa progression (voir `addVocabHints`).
-      const vocab = correct
-        ? state.vocab
-        : addVocabHints(state.vocab, item.vocab ?? [], 'missed', now, {
-            itemId: item.id,
-            part: set.part,
-          });
-
-      // 4. Streak d'utilisation.
+      // 3. Streak d'utilisation.
       const today = dayKey(now);
       const activeDays = state.activeDays.includes(today)
         ? state.activeDays
         : [...state.activeDays, today];
 
-      return { ...state, attempts, errors, vocab, activeDays };
+      // Le vocabulaire n'entre plus jamais tout seul au carnet : une faute
+      // affiche ses mots clés dans la correction, mais c'est toujours un tap
+      // (ou une saisie manuelle) qui les y verse — voir `VocabSheet`.
+      return { ...state, attempts, errors, activeDays };
     }
 
     case 'addVocab': {
-      const { hints, source } = action.payload;
+      const { hints, source, origin } = action.payload;
       return {
         ...state,
-        vocab: addVocabHints(state.vocab, hints, 'manual', Date.now(), source),
+        vocab: addVocabHints(state.vocab, hints, origin ?? 'manual', Date.now(), source),
       };
     }
 
@@ -132,7 +131,11 @@ interface Ctx {
   state: AppState;
   answer: (payload: AnswerPayload) => void;
   setSettings: (patch: Partial<Settings>) => void;
-  addVocab: (hints: VocabHint[], source?: { itemId: string; part: PartId }) => void;
+  addVocab: (
+    hints: VocabHint[],
+    source?: { itemId: string; part: PartId },
+    origin?: VocabEntry['origin'],
+  ) => void;
   reviewVocabEntry: (id: string, known: boolean) => void;
   removeVocab: (id: string) => void;
   reset: () => void;
@@ -152,7 +155,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       state,
       answer: (payload) => dispatch({ type: 'answer', payload }),
       setSettings: (patch) => dispatch({ type: 'settings', payload: patch }),
-      addVocab: (hints, source) => dispatch({ type: 'addVocab', payload: { hints, source } }),
+      addVocab: (hints, source, origin) =>
+        dispatch({ type: 'addVocab', payload: { hints, source, origin } }),
       reviewVocabEntry: (id, known) => dispatch({ type: 'reviewVocab', payload: { id, known } }),
       removeVocab: (id) => dispatch({ type: 'removeVocab', payload: id }),
       reset: () => dispatch({ type: 'reset' }),

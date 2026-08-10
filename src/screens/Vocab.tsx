@@ -1,9 +1,11 @@
 /**
  * Carnet de vocabulaire — l'endroit unique où atterrit tout le lexique à revoir.
  *
+ * Rien n'y entre tout seul : chaque mot demande un tap (depuis la correction
+ * d'une question) ou une saisie manuelle (ici, avec traduction suggérée).
  * Deux provenances, distinguées à l'écran :
- *  - « raté » : mot clé d'une question manquée, versé automatiquement ;
- *  - « ajouté » : mot signalé à la main pendant une session ou saisi ici.
+ *  - « raté » : mot clé ajouté depuis la correction d'une question manquée ;
+ *  - « ajouté » : mot saisi à la main, ici ou pendant une session.
  */
 
 import { useMemo, useState } from 'react';
@@ -11,6 +13,7 @@ import type { VocabEntry } from '../types';
 import { useApp } from '../store';
 import { dueLabel } from '../lib/leitner';
 import { dueVocab, masteredVocab, upcomingVocab, vocabStats } from '../lib/vocab';
+import { translateToFrench } from '../lib/translate';
 import { Page } from '../components/Shell';
 import {
   EmptyState,
@@ -54,7 +57,7 @@ export function Vocab({ onReview }: { onReview: () => void }) {
         title="Le lexique qui te coûte."
         lede={
           stats.total
-            ? `${stats.total} mot${stats.total > 1 ? 's' : ''} · les termes ratés arrivent ici tout seuls`
+            ? `${stats.total} mot${stats.total > 1 ? 's' : ''} · ajoutés depuis une correction ou à la main`
             : undefined
         }
         aside={
@@ -68,7 +71,7 @@ export function Vocab({ onReview }: { onReview: () => void }) {
         <EmptyState
           icon={<Notebook size={22} />}
           title="Carnet vide"
-          text="Les mots clés des questions que tu rates arrivent ici automatiquement. Tu peux aussi en signaler un depuis n’importe quelle correction."
+          text="Les mots clés des questions que tu rates s’affichent dans la correction — ajoute-les en un tap, ou saisis-en un toi-même ici."
           action={
             <button onClick={() => setAdding(true)} className="btn-primary mt-2">
               Ajouter un mot
@@ -219,7 +222,7 @@ function VocabCard({ entry, now }: { entry: VocabEntry; now: number }) {
   );
 }
 
-/** Saisie libre d'un mot : le complément indispensable de la capture auto. */
+/** Saisie libre d'un mot, avec traduction suggérée automatiquement (MyMemory). */
 export function AddVocabDialog({
   onClose,
   initialTerm = '',
@@ -231,6 +234,15 @@ export function AddVocabDialog({
   const [term, setTerm] = useState(initialTerm);
   const [translation, setTranslation] = useState('');
   const [example, setExample] = useState('');
+  const [translating, setTranslating] = useState(false);
+
+  const autoTranslate = async () => {
+    if (!term.trim() || translation.trim()) return;
+    setTranslating(true);
+    const result = await translateToFrench(term);
+    setTranslating(false);
+    if (result) setTranslation(result);
+  };
 
   const save = () => {
     if (!term.trim() || !translation.trim()) return;
@@ -247,12 +259,23 @@ export function AddVocabDialog({
         <input
           value={term}
           onChange={(e) => setTerm(e.target.value)}
+          onBlur={autoTranslate}
           autoFocus
           placeholder="to postpone"
           className="field mt-1.5"
         />
 
-        <label className="eyebrow mt-4 block">Traduction</label>
+        <label className="eyebrow mt-4 flex items-center justify-between">
+          Traduction
+          <button
+            type="button"
+            onClick={autoTranslate}
+            disabled={!term.trim() || translating}
+            className="normal-case tracking-normal text-iris disabled:text-faint"
+          >
+            {translating ? 'Traduction…' : 'Traduire'}
+          </button>
+        </label>
         <input
           value={translation}
           onChange={(e) => setTranslation(e.target.value)}

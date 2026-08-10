@@ -1,38 +1,52 @@
 /**
  * Panneau d'ajout au carnet, ouvert depuis la correction d'une question.
  *
- * Il montre les mots clés de la question — ceux déjà versés automatiquement
- * apparaissent cochés, ce qui rend la capture auto visible et vérifiable — et
- * permet d'en signaler un autre à la main.
+ * Il montre les mots clés de la question — ceux déjà présents dans le carnet
+ * apparaissent cochés — et permet d'en ajouter un à la main. Rien n'y entre
+ * tout seul : chaque mot suggéré demande un tap, et l'origine affichée dans
+ * le carnet (« raté » / « ajouté ») reflète si la question était juste ou non.
  */
 
 import { useState } from 'react';
 import type { PartId, QuestionItem } from '../types';
 import { useApp } from '../store';
 import { vocabId } from '../lib/vocab';
+import { translateToFrench } from '../lib/translate';
 
 export function VocabSheet({
   item,
   part,
+  correct,
   onClose,
 }: {
   item: QuestionItem;
   part: PartId;
+  correct: boolean;
   onClose: () => void;
 }) {
   const { state, addVocab } = useApp();
   const hints = item.vocab ?? [];
   const source = { itemId: item.id, part };
+  const origin = correct ? 'manual' : 'missed';
 
   const [custom, setCustom] = useState(false);
   const [term, setTerm] = useState('');
   const [translation, setTranslation] = useState('');
+  const [translating, setTranslating] = useState(false);
 
   const inDeck = (t: string) => Boolean(state.vocab[vocabId(t)]);
 
+  const autoTranslate = async () => {
+    if (!term.trim() || translation.trim()) return;
+    setTranslating(true);
+    const result = await translateToFrench(term);
+    setTranslating(false);
+    if (result) setTranslation(result);
+  };
+
   const saveCustom = () => {
     if (!term.trim() || !translation.trim()) return;
-    addVocab([{ term, translation }], source);
+    addVocab([{ term, translation }], source, origin);
     setTerm('');
     setTranslation('');
     setCustom(false);
@@ -65,7 +79,7 @@ export function VocabSheet({
                       <p className="text-sm text-slate-400">{hint.translation}</p>
                     </div>
                     <button
-                      onClick={() => addVocab([hint], source)}
+                      onClick={() => addVocab([hint], source, origin)}
                       disabled={added}
                       className={`chip shrink-0 ${
                         added
@@ -92,16 +106,28 @@ export function VocabSheet({
             <input
               value={term}
               onChange={(e) => setTerm(e.target.value)}
+              onBlur={autoTranslate}
               autoFocus
               placeholder="Mot ou expression (anglais)"
               className="w-full rounded-lg border border-white/10 bg-ink-900 px-3 py-2 text-sm outline-none focus:border-indigo-400"
             />
-            <input
-              value={translation}
-              onChange={(e) => setTranslation(e.target.value)}
-              placeholder="Traduction"
-              className="mt-2 w-full rounded-lg border border-white/10 bg-ink-900 px-3 py-2 text-sm outline-none focus:border-indigo-400"
-            />
+            <div className="mt-2 flex items-center gap-2">
+              <input
+                value={translation}
+                onChange={(e) => setTranslation(e.target.value)}
+                placeholder={translating ? 'Traduction…' : 'Traduction'}
+                className="w-full rounded-lg border border-white/10 bg-ink-900 px-3 py-2 text-sm outline-none focus:border-indigo-400"
+              />
+              <button
+                type="button"
+                onClick={autoTranslate}
+                disabled={!term.trim() || translating}
+                title="Traduire automatiquement"
+                className="shrink-0 rounded-lg border border-white/10 px-2.5 py-2 text-xs text-slate-400 disabled:opacity-40"
+              >
+                {translating ? '…' : '↻'}
+              </button>
+            </div>
             <div className="mt-2 flex gap-2">
               <button onClick={() => setCustom(false)} className="btn-ghost flex-1 py-2 text-xs">
                 Annuler

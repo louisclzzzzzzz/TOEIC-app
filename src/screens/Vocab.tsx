@@ -22,11 +22,11 @@ import {
   Tag,
   sectionColor,
 } from '../components/ui';
-import { CheckCircle, ChevronRight, Notebook, Plus, Recycle, Trash } from '../components/Icons';
+import { CheckCircle, ChevronRight, Layers, Notebook, Plus, Recycle, Trash } from '../components/Icons';
 
 type Filter = 'due' | 'upcoming' | 'mastered';
 
-export function Vocab({ onReview }: { onReview: () => void }) {
+export function Vocab({ onReview, onBank }: { onReview: () => void; onBank: () => void }) {
   const { state } = useApp();
   const now = Date.now();
   const stats = useMemo(() => vocabStats(state.vocab, now), [state.vocab, now]);
@@ -61,9 +61,14 @@ export function Vocab({ onReview }: { onReview: () => void }) {
             : undefined
         }
         aside={
-          <button onClick={() => setAdding(true)} className="btn-quiet shrink-0">
-            <Plus size={16} /> Ajouter
-          </button>
+          <div className="flex shrink-0 gap-2">
+            <button onClick={onBank} className="btn-quiet">
+              <Layers size={16} /> Banque TOEIC
+            </button>
+            <button onClick={() => setAdding(true)} className="btn-quiet">
+              <Plus size={16} /> Ajouter
+            </button>
+          </div>
         }
       />
 
@@ -71,11 +76,16 @@ export function Vocab({ onReview }: { onReview: () => void }) {
         <EmptyState
           icon={<Notebook size={22} />}
           title="Carnet vide"
-          text="Les mots clés des questions que tu rates s’affichent dans la correction — ajoute-les en un tap, ou saisis-en un toi-même ici."
+          text="Les mots clés des questions que tu rates s’affichent dans la correction — ajoute-les en un tap, pioche dans la banque TOEIC, ou saisis-en un toi-même."
           action={
-            <button onClick={() => setAdding(true)} className="btn-primary mt-2">
-              Ajouter un mot
-            </button>
+            <div className="mt-2 flex flex-wrap justify-center gap-2">
+              <button onClick={onBank} className="btn-primary">
+                Explorer la banque
+              </button>
+              <button onClick={() => setAdding(true)} className="btn-quiet">
+                Ajouter un mot
+              </button>
+            </div>
           }
         />
       ) : (

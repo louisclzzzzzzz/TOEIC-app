@@ -26,12 +26,14 @@ import { Settings } from './screens/Settings';
 import { ExamIntro } from './screens/ExamIntro';
 import { Vocab } from './screens/Vocab';
 import { VocabReview } from './screens/VocabReview';
+import { VocabBank } from './screens/VocabBank';
 
 type View =
   | { t: Tab }
   | { t: 'practice' }
   | { t: 'exam-intro' }
   | { t: 'vocab-review' }
+  | { t: 'vocab-bank' }
   | {
       t: 'session';
       blocks: SessionBlock[];
@@ -131,8 +133,14 @@ export function App() {
 
       {view.t === 'dashboard' && <Dashboard />}
       {view.t === 'journal' && <Journal onReview={startReview} />}
-      {view.t === 'vocab' && <Vocab onReview={() => setView({ t: 'vocab-review' })} />}
+      {view.t === 'vocab' && (
+        <Vocab
+          onReview={() => setView({ t: 'vocab-review' })}
+          onBank={() => setView({ t: 'vocab-bank' })}
+        />
+      )}
       {view.t === 'vocab-review' && <VocabReview onDone={() => setView({ t: 'vocab' })} />}
+      {view.t === 'vocab-bank' && <VocabBank onBack={() => setView({ t: 'vocab' })} />}
       {view.t === 'settings' && <Settings />}
 
       {!inFlow && <BottomNav active={tab!} onNavigate={(t) => setView({ t })} />}

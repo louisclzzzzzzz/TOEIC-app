@@ -2,19 +2,23 @@
  * Coquille de navigation.
  *
  * Deux formes pour le même contenu :
- *  - ≥ 768 px : barre haute fixe, logo à gauche, liens icône + texte à droite,
- *    sur le même crème que la page (aucun contraste de fond) ;
+ *  - ≥ 768 px : barre haute fixe, logo à gauche, liens à droite, sur le même
+ *    crème que la page (aucun contraste de fond). Les libellés n'apparaissent
+ *    qu'à partir de 1024 px : à six onglets, ils déborderaient sur une tablette
+ *    en portrait, et six icônes alignées se lisent mieux que six libellés
+ *    tronqués ;
  *  - < 768 px : barre d'onglets en bas. L'app sert surtout sur téléphone, à une
  *    main : le haut de l'écran est hors de portée du pouce.
  */
 
 import type { ReactNode } from 'react';
-import { Chart, Home, Journal, Notebook, Sliders } from './Icons';
+import { Chart, Headphones, Home, Journal, Notebook, Sliders } from './Icons';
 
-export type Tab = 'home' | 'dashboard' | 'journal' | 'vocab' | 'settings';
+export type Tab = 'home' | 'handsfree' | 'dashboard' | 'journal' | 'vocab' | 'settings';
 
 export const TABS: { id: Tab; label: string; icon: (p: { size?: number }) => ReactNode }[] = [
   { id: 'home', label: 'Accueil', icon: Home },
+  { id: 'handsfree', label: 'Écoute', icon: Headphones },
   { id: 'dashboard', label: 'Progrès', icon: Chart },
   { id: 'journal', label: 'Journal', icon: Journal },
   { id: 'vocab', label: 'Carnet', icon: Notebook },
@@ -39,12 +43,14 @@ export function TopNav({ active, onNavigate }: { active: Tab; onNavigate: (t: Ta
                 key={tab.id}
                 onClick={() => onNavigate(tab.id)}
                 aria-current={on ? 'page' : undefined}
-                className={`flex items-center gap-2 rounded-full px-3.5 py-2 text-[13.5px] transition ${
+                aria-label={tab.label}
+                title={tab.label}
+                className={`flex items-center gap-2 rounded-full px-3 py-2 text-[13.5px] transition lg:px-3.5 ${
                   on ? 'bg-surface text-navy' : 'text-muted hover:text-navy'
                 }`}
               >
                 <Icon size={17} />
-                {tab.label}
+                <span className="hidden lg:inline">{tab.label}</span>
               </button>
             );
           })}

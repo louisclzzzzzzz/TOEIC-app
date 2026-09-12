@@ -49,13 +49,14 @@ export function PassageView({
       {/* Serif pour le corps : ces passages sont de la lecture suivie, pas de
           l'interface — le rendu s'approche de la page d'examen. */}
       <div className="whitespace-pre-line font-display text-[16px] leading-[1.7] text-ink">
-        {renderBody(passage.body, highlightBlank)}
+        {withBlanks(passage.body, highlightBlank)}
       </div>
     </article>
   );
 }
 
-function renderBody(body: string, highlight?: number) {
+/** Corps d'un passage, trous de Part 6 remplacés par leur pastille numérotée. */
+export function withBlanks(body: string, highlight?: number) {
   const out: (string | ReactElement)[] = [];
   let last = 0;
   let match: RegExpExecArray | null;

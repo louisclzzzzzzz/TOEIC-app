@@ -123,6 +123,9 @@ export interface QuestionSet {
 
 export type SessionMode = 'practice' | 'mixed' | 'review' | 'exam';
 
+/** Parties tirées par une séance du mode Écoute : tout, l'oral seul, l'écrit seul. */
+export type HandsFreeScope = 'all' | 'listening' | 'reading';
+
 /** Une réponse donnée. Toutes les stats du dashboard dérivent de cette liste. */
 export interface Attempt {
   itemId: string;
@@ -215,6 +218,12 @@ export interface Settings {
   autoPlay: boolean;
   /** Nombre de questions par session de practice. */
   sessionLength: number;
+  /** Mode Écoute : durée visée d'une séance mains libres, en minutes. */
+  handsFreeMinutes: number;
+  /** Mode Écoute : silence laissé pour répondre dans sa tête, en secondes. */
+  handsFreeThinkSec: number;
+  /** Mode Écoute : parties tirées. */
+  handsFreeScope: HandsFreeScope;
 }
 
 export interface AppState {
@@ -225,5 +234,13 @@ export interface AppState {
   vocab: Record<string, VocabEntry>;
   /** Jours d'activité au format YYYY-MM-DD, pour le streak. */
   activeDays: string[];
+  /**
+   * Blocs déjà passés en mode Écoute (`setId` → timestamp).
+   *
+   * Une séance mains libres ne produit aucune réponse, donc aucune `Attempt` :
+   * sans cette trace, le tirage « le moins récemment vu d'abord » resservirait
+   * les mêmes conversations à chaque séance.
+   */
+  heard: Record<string, number>;
   settings: Settings;
 }

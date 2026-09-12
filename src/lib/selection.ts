@@ -42,9 +42,16 @@ function countItems(blocks: SessionBlock[]): number {
 /**
  * Ordonne les sets d'une partie : d'abord ceux jamais vus, puis les plus anciens.
  * Évite de retomber sur la même conversation deux sessions de suite.
+ *
+ * `alsoSeen` couvre ce qui a été rencontré sans être répondu — le mode Écoute
+ * ne produit aucune tentative, mais un bloc écouté ce matin reste un bloc vu.
  */
-function byFreshness(sets: QuestionSet[], attempts: Attempt[]): QuestionSet[] {
-  const lastSeen = new Map<string, number>();
+export function byFreshness(
+  sets: QuestionSet[],
+  attempts: Attempt[],
+  alsoSeen: Record<string, number> = {},
+): QuestionSet[] {
+  const lastSeen = new Map<string, number>(Object.entries(alsoSeen));
   for (const a of attempts) {
     lastSeen.set(a.setId, Math.max(lastSeen.get(a.setId) ?? 0, a.at));
   }

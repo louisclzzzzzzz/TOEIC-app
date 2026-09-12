@@ -154,6 +154,21 @@ export const Stop = (p: IconProps) => (
   </Svg>
 );
 
+/** Chapitre précédent / suivant du mode Écoute. */
+export const SkipBack = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M18 6.4v11.2a.6.6 0 0 1-.93.5l-8.4-5.6a.6.6 0 0 1 0-1l8.4-5.6a.6.6 0 0 1 .93.5Z" />
+    <path d="M6 5.5v13" />
+  </Svg>
+);
+
+export const SkipForward = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M6 6.4v11.2a.6.6 0 0 0 .93.5l8.4-5.6a.6.6 0 0 0 0-1l-8.4-5.6a.6.6 0 0 0-.93.5Z" />
+    <path d="M18 5.5v13" />
+  </Svg>
+);
+
 /** Reprendre le passage en cours — flèche circulaire antihoraire. */
 export const Rewind = (p: IconProps) => (
   <Svg {...p}>

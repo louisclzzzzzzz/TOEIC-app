@@ -11,6 +11,13 @@ import { applyReview, createErrorEntry, dueEntries } from '../src/lib/leitner';
 import { currentStreak, dayKey, partStats, weakestPart } from '../src/lib/stats';
 import { buildExamSession, examDurationSec, partWeights, buildMixedSession, buildPracticeSession, buildReviewSession } from '../src/lib/selection';
 import { QUESTION_BANK } from '../src/data/questions';
+import {
+  buildChapters,
+  buildHandsFreeSession,
+  handsFreeLines,
+  speakable,
+  spokenSeconds,
+} from '../src/lib/handsFree';
 import { addVocabHints, reviewVocab, vocabId, vocabStats } from '../src/lib/vocab';
 import { DEFAULT_STATE } from '../src/lib/storage';
 import { nextIndex, renumber, setToSource } from '../src/lib/seedExport';
@@ -165,6 +172,125 @@ const e2 = applyReview(applyReview(createErrorEntry(set, item, 'A', now), true, 
 check('streak cassé par une erreur', e2.streak === 0);
 const e3 = applyReview(applyReview(e2, true, now), true, now);
 check('deux bonnes après une rechute → maîtrisé', e3.mastered);
+
+console.log('\n— Mode Écoute (mains libres) —');
+const hfOpts = { thinkSec: 5, rate: 0.95 };
+const hfChapters = QUESTION_BANK.flatMap((s) => buildChapters(s, hfOpts));
+const hfSpoken = hfChapters.flatMap((c) => c.beats.flatMap((b) => (b.line ? [b.line.text] : [])));
+
+check('la Part 1 est écartée (les photos ne s’écoutent pas)', hfChapters.every((c) => c.part !== 1));
+check(
+  'chaque question de Part 2 à 7 devient un chapitre',
+  hfChapters.filter((c) => c.itemId).length ===
+    QUESTION_BANK.filter((s) => s.part !== 1).reduce((n, s) => n + s.items.length, 0),
+);
+check(
+  'chaque chapitre de question porte sa correction',
+  hfChapters
+    .filter((c) => c.itemId)
+    .every((c) => !!c.reveal?.text && !!c.reveal.explanation && !!c.question?.choices.length),
+);
+check(
+  'chaque question laisse un temps de réflexion puis annonce la réponse',
+  hfChapters
+    .filter((c) => c.itemId)
+    .every((c) => {
+      const think = c.beats.findIndex((b) => b.role === 'think');
+      return think > 0 && c.beats.slice(think).some((b) => b.role === 'answer');
+    }),
+);
+// Ce qui part à la synthèse est lu tel quel : un marqueur de mise en page qui
+// survit ici s'entendra (« underscore, underscore, two »).
+check('aucune réplique vide', hfSpoken.every((t) => t.trim().length > 1));
+check(
+  'aucun marqueur de mise en page prononcé',
+  hfSpoken.every((t) => !/_{2,}|-{2,}|\|/.test(t)),
+  hfSpoken.find((t) => /_{2,}|-{2,}|\|/.test(t)),
+);
+check('« ---- » devient « blank »', speakable('submit it ---- Friday') === 'submit it blank Friday.');
+check('trou numéroté', speakable('will ___(2)___ work') === 'will blank two work.');
+check('en-tête d’email', speakable('To: All staff | From: HR') === 'To: All staff. From: HR.');
+check('plage horaire', speakable('9:30–11:30 on 22 May') === '9:30 to 11:30 on 22 May.');
+check('ponctuation finale ajoutée une seule fois', speakable('Room B2') === 'Room B2.');
+
+check(
+  'les trous se prononcent « blank »',
+  buildChapters(QUESTION_BANK.find((s) => s.part === 6)!, hfOpts)[0].beats.some((b) =>
+    b.line?.text.includes('blank one'),
+  ),
+);
+const p5 = buildChapters(QUESTION_BANK.find((s) => s.id === 'p5-01')!, hfOpts)[0];
+check(
+  'Part 5 : la correction relit la phrase complétée',
+  p5.beats.at(-1)!.line!.text.includes('will have completed'),
+);
+// Les trois réponses de Part 2 sont déjà enregistrées par de vraies voix :
+// les faire relire au narrateur doublerait les clips ET changerait l'exercice.
+const p2 = QUESTION_BANK.filter((s) => s.part === 2);
+check(
+  'Part 2 : les propositions réutilisent les clips existants',
+  p2.every((s) =>
+    buildChapters(s, hfOpts)[0].beats
+      .filter((b) => b.role === 'choice' || (b.role === 'answer' && b.line?.voice !== 'narrator'))
+      .every((b) => s.items[0].audio!.some((l) => l.text === b.line!.text)),
+  ),
+);
+
+const hfLines = handsFreeLines(QUESTION_BANK);
+const bankLines = new Set(
+  QUESTION_BANK.flatMap((s) => [...(s.audio ?? []), ...s.items.flatMap((i) => i.audio ?? [])]).map(
+    (l) => `${l.voice ?? 'narrator'}|${l.text}`,
+  ),
+);
+check(
+  'toute réplique jouée est bien collectée pour la synthèse',
+  new Set(hfLines.map((l) => `${l.voice ?? 'narrator'}|${l.text}`)).size ===
+    new Set(
+      hfChapters.flatMap((c) =>
+        c.beats.flatMap((b) => (b.line ? [`${b.line.voice ?? 'narrator'}|${b.line.text}`] : [])),
+      ),
+    ).size,
+);
+const extra = hfLines.filter((l) => !bankLines.has(`${l.voice ?? 'narrator'}|${l.text}`));
+console.log(
+  `  → ${hfLines.length} répliques, dont ${extra.length} à synthétiser en plus de la banque` +
+    ` (${Math.round(extra.reduce((n, l) => n + l.text.length, 0) / 1000)} k caractères,` +
+    ` ≈ ${Math.round(extra.reduce((n, l) => n + spokenSeconds(l.text, 1), 0) / 60)} min d’audio)`,
+);
+
+// Une séance doit tomber près de la durée demandée : trop courte, elle finit
+// avant la fin de la marche ; trop longue, elle ne tient pas dans la pause.
+for (const minutes of [5, 10, 20] as const) {
+  const plan = buildHandsFreeSession(DEFAULT_STATE, { minutes, scope: 'all', ...hfOpts });
+  check(
+    `séance de ${minutes} min : durée estimée dans la cible`,
+    plan.seconds >= minutes * 60 * 0.8 && plan.seconds <= minutes * 60 * 1.2,
+    `${Math.round(plan.seconds / 60)} min, ${plan.questionCount} questions`,
+  );
+  check(`séance de ${minutes} min : aucun bloc en double`, new Set(plan.setIds).size === plan.setIds.length);
+}
+check(
+  'le filtre listening ne sort que des parties audio',
+  buildHandsFreeSession(DEFAULT_STATE, { minutes: 10, scope: 'listening', ...hfOpts }).chapters.every(
+    (c) => c.part <= 4,
+  ),
+);
+check(
+  'le filtre reading ne sort que des parties écrites',
+  buildHandsFreeSession(DEFAULT_STATE, { minutes: 10, scope: 'reading', ...hfOpts }).chapters.every(
+    (c) => c.part >= 5,
+  ),
+);
+// Un bloc déjà entendu passe en fin de file, comme après une session répondue.
+const firstPlan = buildHandsFreeSession(DEFAULT_STATE, { minutes: 5, scope: 'all', ...hfOpts });
+const afterHeard = buildHandsFreeSession(
+  { ...DEFAULT_STATE, heard: Object.fromEntries(firstPlan.setIds.map((id) => [id, now])) },
+  { minutes: 5, scope: 'all', ...hfOpts },
+);
+check(
+  'une séance ne resert pas ce qui vient d’être entendu',
+  afterHeard.setIds.every((id) => !firstPlan.setIds.includes(id)),
+);
 
 console.log('\n— Streak d’utilisation —');
 const d = (n: number) => dayKey(now - n * DAY);

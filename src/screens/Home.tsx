@@ -13,7 +13,16 @@ import {
   StatWidget,
   pct,
 } from '../components/ui';
-import { CheckCircle, Clock, Flame, Layers, Notebook, Recycle, Target } from '../components/Icons';
+import {
+  CheckCircle,
+  Clock,
+  Flame,
+  Headphones,
+  Layers,
+  Notebook,
+  Recycle,
+  Target,
+} from '../components/Icons';
 
 interface Props {
   onMixed: () => void;
@@ -21,6 +30,7 @@ interface Props {
   onReview: () => void;
   onExam: () => void;
   onVocab: () => void;
+  onHandsFree: () => void;
 }
 
 /** Salutation selon l'heure — l'app sert le matin comme le soir. */
@@ -32,7 +42,7 @@ function greeting(): string {
   return 'Bonsoir.';
 }
 
-export function Home({ onMixed, onPractice, onReview, onExam, onVocab }: Props) {
+export function Home({ onMixed, onPractice, onReview, onExam, onVocab, onHandsFree }: Props) {
   const { state } = useApp();
   const stats = useMemo(() => globalStats(state), [state]);
   const vocab = useMemo(() => vocabStats(state.vocab), [state.vocab]);
@@ -136,6 +146,13 @@ export function Home({ onMixed, onPractice, onReview, onExam, onVocab }: Props) 
             title="Practice ciblé"
             description="Choisis les parties à travailler et la longueur."
             onClick={onPractice}
+          />
+          <ActionCard
+            icon={<Headphones size={19} />}
+            title="Écoute mains libres"
+            description={`${state.settings.handsFreeMinutes} min sans rien toucher : la question, un silence, la réponse.`}
+            onClick={onHandsFree}
+            color="var(--color-tide)"
           />
           <ActionCard
             icon={<Notebook size={19} />}

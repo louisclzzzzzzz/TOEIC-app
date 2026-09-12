@@ -32,7 +32,13 @@ export async function clipUrl(line: AudioLine): Promise<string> {
 export async function fetchClip(line: AudioLine, signal?: AbortSignal): Promise<Blob> {
   const url = await clipUrl(line);
   const res = await fetch(url, { signal });
-  if (!res.ok) throw new Error(`Clip audio manquant (${url}) — banque pas encore synthétisée ?`);
+  // Un serveur de dev (et tout hébergement en mode SPA) répond `index.html`
+  // avec un code 200 pour un fichier absent : sans contrôle du type, on croirait
+  // tenir un clip, et le lecteur échouerait plus tard sur un blob de HTML au
+  // lieu de basculer proprement sur la voix du système.
+  if (!res.ok || !(res.headers.get('content-type') ?? '').startsWith('audio/')) {
+    throw new Error(`Clip audio manquant (${url}) — banque pas encore synthétisée ?`);
+  }
   return res.blob();
 }
 

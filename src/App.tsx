@@ -27,6 +27,9 @@ import { ExamIntro } from './screens/ExamIntro';
 import { Vocab } from './screens/Vocab';
 import { VocabReview } from './screens/VocabReview';
 import { VocabBank } from './screens/VocabBank';
+import { HandsFree } from './screens/HandsFree';
+import { HandsFreeSession } from './screens/HandsFreeSession';
+import type { HandsFreePlan } from './lib/handsFree';
 
 type View =
   | { t: Tab }
@@ -34,6 +37,7 @@ type View =
   | { t: 'exam-intro' }
   | { t: 'vocab-review' }
   | { t: 'vocab-bank' }
+  | { t: 'handsfree-session'; plan: HandsFreePlan }
   | {
       t: 'session';
       blocks: SessionBlock[];
@@ -97,7 +101,16 @@ export function App() {
           onReview={startReview}
           onExam={() => setView({ t: 'exam-intro' })}
           onVocab={() => setView({ t: 'vocab' })}
+          onHandsFree={() => setView({ t: 'handsfree' })}
         />
+      )}
+
+      {view.t === 'handsfree' && (
+        <HandsFree onStart={(plan) => setView({ t: 'handsfree-session', plan })} />
+      )}
+
+      {view.t === 'handsfree-session' && (
+        <HandsFreeSession plan={view.plan} onExit={() => setView({ t: 'handsfree' })} />
       )}
 
       {view.t === 'practice' && (

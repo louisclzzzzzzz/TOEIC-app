@@ -44,6 +44,7 @@ type Action =
     }
   | { type: 'reviewVocab'; payload: { id: string; known: boolean } }
   | { type: 'removeVocab'; payload: string }
+  | { type: 'heard'; payload: string[] }
   | { type: 'reset' };
 
 function reducer(state: AppState, action: Action): AppState {
@@ -118,6 +119,29 @@ function reducer(state: AppState, action: Action): AppState {
       return { ...state, vocab: next };
     }
 
+    /**
+     * Fin d'une séance en mode Écoute.
+     *
+     * Aucune réponse n'est saisie, donc rien n'entre dans les statistiques ni
+     * dans les boîtes Leitner — mesurer une précision sur des réponses données
+     * dans sa tête serait une invention. On retient seulement les blocs
+     * entendus (pour ne pas les resservir) et le fait que la journée a servi :
+     * dix minutes d'écoute en marchant, c'est du travail, la série le compte.
+     */
+    case 'heard': {
+      // Séance ouverte puis quittée aussitôt : rien n'a été écouté, rien à noter.
+      if (!action.payload.length) return state;
+      const now = Date.now();
+      const today = dayKey(now);
+      return {
+        ...state,
+        heard: { ...state.heard, ...Object.fromEntries(action.payload.map((id) => [id, now])) },
+        activeDays: state.activeDays.includes(today)
+          ? state.activeDays
+          : [...state.activeDays, today],
+      };
+    }
+
     case 'settings':
       return { ...state, settings: { ...state.settings, ...action.payload } };
 
@@ -138,6 +162,8 @@ interface Ctx {
   ) => void;
   reviewVocabEntry: (id: string, known: boolean) => void;
   removeVocab: (id: string) => void;
+  /** Clôt une séance du mode Écoute : blocs entendus + jour actif. */
+  markHeard: (setIds: string[]) => void;
   reset: () => void;
 }
 
@@ -159,6 +185,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         dispatch({ type: 'addVocab', payload: { hints, source, origin } }),
       reviewVocabEntry: (id, known) => dispatch({ type: 'reviewVocab', payload: { id, known } }),
       removeVocab: (id) => dispatch({ type: 'removeVocab', payload: id }),
+      markHeard: (setIds) => dispatch({ type: 'heard', payload: setIds }),
       reset: () => dispatch({ type: 'reset' }),
     }),
     [state],

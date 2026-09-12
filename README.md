@@ -41,8 +41,11 @@ plutôt que de décorer, et un creux se repère sans lire un chiffre.
 
 **Navigation** — barre haute à partir de 768 px, barre d'onglets en bas en
 dessous. L'app sert surtout sur téléphone, à une main : le haut de l'écran est
-hors de portée du pouce. Les écrans de flux (session, examen, flashcards)
+hors de portée du pouce. Les écrans de flux (session, examen, flashcards, écoute)
 masquent les deux — pas d'échappatoire à un clic pendant un examen chronométré.
+Dans la barre haute, les libellés n'apparaissent qu'à partir de 1024 px : à six
+onglets, ils déborderaient sur une tablette en portrait, et six icônes alignées
+se lisent mieux que six libellés tronqués.
 
 Une seule couleur par **section** (listening bleu, reading indigo) plutôt qu'une
 par partie : sept teintes en aplat fatigueraient la page, alors que la
@@ -65,7 +68,7 @@ sur le téléphone (même Wi-Fi, `npm run dev -- --host` puis l'IP affichée).
 | `npm run typecheck` | TypeScript strict |
 | `MISTRAL_API_KEY=... npm run synthesize` | synthétise l'audio manquant dans `public/audio/` |
 
-## Les 5 modes
+## Les 6 modes
 
 | Mode | Ce que ça fait |
 | --- | --- |
@@ -74,6 +77,7 @@ sur le téléphone (même Wi-Fi, `npm run dev -- --host` puis l'IP affichée).
 | **Révision espacée** | rejoue uniquement les items échus du journal d'erreurs |
 | **Vocabulaire** | flashcards des mots ratés ou signalés (voir plus bas) |
 | **Examen blanc** | ~32 questions, chronométré par section, aucune correction avant la fin |
+| **Écoute (mains libres)** | 5 à 20 min qui défilent seules, sans rien toucher : question, silence, réponse (voir plus bas) |
 
 Dans tous les modes, une session s'ouvre en moins d'une seconde : la banque est
 codée en dur dans le bundle, et l'état est lu en synchrone depuis `localStorage`.
@@ -144,6 +148,67 @@ signaler doit pouvoir se travailler dans la foulée.
 
 Les mots oubliés au moins deux fois sont comptés à part dans le carnet : ce sont
 ceux qui méritent une fiche dédiée.
+
+## Mode Écoute (mains libres)
+
+Onglet **Écoute**. Le cas d'usage est la salle de sport ou la marche : on pose le
+téléphone, on met les écouteurs, et la séance se déroule seule — question,
+silence pour répondre dans sa tête, réponse. Rien à taper, rien à noter, aucune
+correction à faire défiler.
+
+Trois réglages, mémorisés d'une séance à l'autre : la **durée** (5 à 20 min, 10
+par défaut), le **contenu** (tout, listening seul, reading seul) et le **temps de
+réflexion** (3, 5 ou 8 s). L'aperçu affiché est la séance réellement tirée.
+
+### Tout ce qui est imprimé devient audible
+
+C'est la seule vraie différence avec une session normale : à l'examen, les
+propositions de Part 3 à 7, les phrases à trous et les documents de lecture sont
+sur la feuille. Ici, ils sont **prononcés**, sinon il faudrait regarder l'écran.
+Ce qui reste à l'écran, en revanche, est exactement ce que l'examen imprime — la
+conversation de Part 3 n'est donc jamais affichée, et la Part 2 ne montre que
+A / B / C.
+
+| Partie | Ce qu'on entend |
+| --- | --- |
+| **2** | la question puis les 3 réponses (clips existants), « The correct answer is B. », la bonne réponse rejouée |
+| **3 / 4** | la conversation ou le monologue, puis « Question one. », l'énoncé, les 4 propositions |
+| **5** | la phrase avec « blank » à la place du trou, les 4 propositions, puis **la phrase complète corrigée** — c'est elle qu'on veut graver, pas la lettre |
+| **6** | le document (les trous se disent « blank two »), puis « Blank one. » et ses propositions |
+| **7** | le ou les documents lus en entier, puis chaque question et ses propositions |
+
+La **Part 1 est exclue** : ses quatre descriptions ne veulent rien dire sans la
+photo. La narration est en anglais (« Part five. », « The correct answer is C. »),
+comme sur un enregistrement d'examen ; les explications restent en français, à
+l'écran, pour le coup d'œil d'après.
+
+### Ce que ça exige du lecteur
+
+Un téléphone dans une poche, écran verrouillé, est un environnement hostile :
+les minuteurs sont bridés, et iOS n'autorise la lecture que sur un élément audio
+« débloqué » par un geste. D'où trois partis pris dans
+[`lib/handsFreePlayer.ts`](src/lib/handsFreePlayer.ts) :
+
+- **un seul élément `<audio>`**, débloqué au clic sur « Démarrer » et dont on
+  change simplement la source à chaque réplique ;
+- **les silences sont de vrais clips** (WAV muets fabriqués à la volée,
+  [`lib/tone.ts`](src/lib/tone.ts)), pas des `setTimeout` : c'est la file audio
+  qui tient le tempo, donc la réflexion dure cinq secondes même écran éteint.
+  Un repère sonore discret ouvre ce silence — sinon on croit à une panne ;
+- **tout est téléchargé avant de commencer** (barre de progression) : mieux vaut
+  trois secondes d'attente qu'un blanc au milieu d'une conversation.
+
+L'API **Media Session** expose la séance aux commandes de l'écran de
+verrouillage (lecture, pause, ⏭ / ⏮) et l'API **Wake Lock** garde l'écran allumé
+tant que la séance tourne.
+
+### Ce qui est enregistré : presque rien
+
+Aucune réponse n'est saisie, donc **aucune tentative, aucune statistique, aucune
+boîte Leitner** — mesurer une précision sur des réponses données dans sa tête
+serait une invention. Deux traces seulement : les blocs entendus (pour ne pas les
+resservir à la séance suivante, `state.heard`) et le jour d'activité, qui compte
+pour la série : dix minutes d'écoute en marchant, c'est du travail.
 
 ## Audio : deux moteurs
 
@@ -231,7 +296,19 @@ MISTRAL_API_KEY=... npm run synthesize
 Parcourt toute la banque (`src/data/partN.ts`), déduplique les répliques par
 `(voix, texte)`, et synthétise celles qui n'ont pas encore de fichier dans
 `public/audio/` — idempotent, donc ajouter des questions à la banque puis
-relancer la commande ne resynthétise que le nouveau contenu. Le script parle
+relancer la commande ne resynthétise que le nouveau contenu.
+
+Deux provenances : les scripts audio du listening, et **tout ce que le mode
+Écoute prononce en plus** (énoncés, propositions, phrases complétées, documents
+de Part 6 et 7). Ces répliques-là ne sont pas recopiées dans le script : il les
+demande au constructeur du mode lui-même, `handsFreeLines()` dans
+[`lib/handsFree.ts`](src/lib/handsFree.ts). Le texte synthétisé hors-ligne ne
+peut donc pas différer d'un caractère de celui que l'app réclamera au runtime —
+ce qui suffirait à changer le hash, donc le nom du fichier, donc à faire
+basculer la séance sur la voix du système. Corollaire : **toucher à `speakable()`
+invalide les clips déjà produits**, il faut relancer la commande.
+
+Le script parle
 directement à `api.mistral.ai` (un script Node n'a pas le problème CORS du
 navigateur), écrit les `.mp3`, puis affiche un résumé (synthétisées / échecs /
 déjà présentes, poids total). `public/audio/` est committé dans le dépôt : c'est
@@ -277,6 +354,9 @@ src/
     stats.ts            précision par partie/catégorie, série 30 jours, streak
     tts.ts              point d'entrée audio : choix du moteur, repli
     blockPlayer.ts      timeline continue sur des clips séparés (barre de navigation)
+    handsFree.ts        mode Écoute : QuestionSet → fil de répliques, tirage d'une séance
+    handsFreePlayer.ts  mode Écoute : file audio qui tient même écran verrouillé
+    tone.ts             silences et repère sonore fabriqués dans le navigateur (WAV)
     speech.ts           moteur système (Web Speech API) : voix, file, keep-alive Chrome
     staticAudio.ts      moteur Mistral : résout et récupère les clips pré-synthétisés
     voices.ts           voix Mistral fixes (une par rôle) et modèle TTS
@@ -284,7 +364,8 @@ src/
     seedExport.ts       QuestionSet → source TypeScript prête à coller dans partN.ts
   components/           Scene (SVG Part 1), AudioPlayer, Passage, chart, primitives
   screens/              Home, PracticeSetup, Session, Results, Dashboard, Journal,
-                        Vocab, VocabReview, ExamIntro, Settings
+                        Vocab, VocabReview, ExamIntro, HandsFree, HandsFreeSession,
+                        Settings
   store.tsx             context + reducer, persistance automatique
 public/audio/           clips MP3 pré-synthétisés, nommés par hash (voix + texte)
 scripts/

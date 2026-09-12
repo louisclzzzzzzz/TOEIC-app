@@ -17,6 +17,7 @@ import { mkdirSync, writeFileSync, statSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 
 import { QUESTION_BANK } from '../src/data/questions';
+import { handsFreeLines } from '../src/lib/handsFree';
 import { DEFAULT_VOICES, TTS_MODEL } from '../src/lib/voices';
 import type { AudioLine } from '../src/types';
 
@@ -36,12 +37,23 @@ function hashOf(voiceId: string, text: string): string {
   return createHash('sha256').update(`${voiceId}|${text}`).digest('hex');
 }
 
-/** Toutes les répliques de la banque, dédupliquées par (voix, texte). */
+/**
+ * Toutes les répliques à synthétiser, dédupliquées par (voix, texte).
+ *
+ * Deux provenances :
+ *  - les scripts audio de la banque (Parts 1 à 4) ;
+ *  - le mode Écoute, qui prononce aussi ce que l'examen imprime — énoncés,
+ *    propositions, phrases à trous, documents de lecture. Ces répliques sont
+ *    demandées au constructeur du mode lui-même (`lib/handsFree.ts`), pas
+ *    recopiées ici : le texte synthétisé hors-ligne ne peut donc pas différer
+ *    d'un caractère de celui que l'app réclamera, ce qui suffirait à changer le
+ *    hash — donc le nom du fichier.
+ */
 function collectLines(): { voiceId: string; text: string }[] {
-  const all: AudioLine[] = QUESTION_BANK.flatMap((s) => [
-    ...(s.audio ?? []),
-    ...s.items.flatMap((i) => i.audio ?? []),
-  ]);
+  const all: AudioLine[] = [
+    ...QUESTION_BANK.flatMap((s) => [...(s.audio ?? []), ...s.items.flatMap((i) => i.audio ?? [])]),
+    ...handsFreeLines(QUESTION_BANK),
+  ];
   const seen = new Map<string, { voiceId: string; text: string }>();
   for (const line of all) {
     const voiceId = DEFAULT_VOICES[line.voice ?? 'narrator'];
@@ -61,6 +73,10 @@ async function synthesizeOne(voiceId: string, text: string): Promise<Buffer> {
       response_format: 'mp3',
       voice_id: voiceId,
     }),
+    // Sur un millier d'appels, une requête finit par ne jamais répondre : sans
+    // délai maximal, `fetch` attend indéfiniment et le script reste bloqué à
+    // une réplique de la fin.
+    signal: AbortSignal.timeout(60_000),
   });
 
   if (!res.ok) {
@@ -96,14 +112,25 @@ async function main() {
   const worker = async () => {
     while (cursor < todo.length) {
       const job = todo[cursor++];
-      try {
-        const audio = await synthesizeOne(job.voiceId, job.text);
-        writeFileSync(path.join(OUT_DIR, job.file), audio);
-        done++;
-        process.stdout.write(`\r  ${done + failed}/${todo.length}`);
-      } catch (err) {
-        failed++;
-        console.error(`\n  ✗ ${job.text.slice(0, 60)}… — ${(err as Error).message}`);
+      // Un deuxième essai : sur un millier d'appels, une poignée retombe sur un
+      // délai dépassé ou un 429, et relancer toute la commande pour trois
+      // répliques serait absurde.
+      for (let attempt = 1; ; attempt++) {
+        try {
+          const audio = await synthesizeOne(job.voiceId, job.text);
+          writeFileSync(path.join(OUT_DIR, job.file), audio);
+          done++;
+          process.stdout.write(`\r  ${done + failed}/${todo.length}`);
+          break;
+        } catch (err) {
+          if (attempt < 2) {
+            await new Promise((r) => setTimeout(r, 2000));
+            continue;
+          }
+          failed++;
+          console.error(`\n  ✗ ${job.text.slice(0, 60)}… — ${(err as Error).message}`);
+          break;
+        }
       }
     }
   };

@@ -17,6 +17,7 @@ export const DEFAULT_STATE: AppState = {
   errors: {},
   vocab: {},
   activeDays: [],
+  heard: {},
   settings: {
     // Mistral par défaut : l'audio pré-synthétisé est livré avec le build.
     // Un clip manquant fait basculer `tts.ts` tout seul sur les voix du
@@ -25,6 +26,9 @@ export const DEFAULT_STATE: AppState = {
     speechRate: 0.95,
     autoPlay: true,
     sessionLength: 10,
+    handsFreeMinutes: 10,
+    handsFreeThinkSec: 5,
+    handsFreeScope: 'all',
   },
 };
 
@@ -46,6 +50,7 @@ export function loadState(): AppState {
       vocab: parsed.vocab ?? {},
       attempts: parsed.attempts ?? [],
       activeDays: parsed.activeDays ?? [],
+      heard: parsed.heard ?? {},
     };
   } catch {
     return DEFAULT_STATE;

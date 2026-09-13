@@ -157,8 +157,14 @@ silence pour répondre dans sa tête, réponse. Rien à taper, rien à noter, au
 correction à faire défiler.
 
 Trois réglages, mémorisés d'une séance à l'autre : la **durée** (5 à 20 min, 10
-par défaut), le **contenu** (tout, listening seul, reading seul) et le **temps de
-réflexion** (3, 5 ou 8 s). L'aperçu affiché est la séance réellement tirée.
+par défaut), le **contenu** et le **temps de réflexion** (3, 5 ou 8 s). L'aperçu
+affiché est la séance réellement tirée.
+
+Le contenu se choisit **partie par partie**, avec trois raccourcis (tout,
+écoute, lecture) qui ne font que remplir cette sélection. Cocher la seule Part 5
+donne dix minutes de phrases à trous, et c'est le but : quand une partie résiste,
+on veut l'enchaîner, pas l'attendre. L'ordre de rotation reste alterné
+(audio, lecture, audio…) et se réduit tout seul au sous-ensemble choisi.
 
 ### Tout ce qui est imprimé devient audible
 
@@ -181,6 +187,16 @@ La **Part 1 est exclue** : ses quatre descriptions ne veulent rien dire sans la
 photo. La narration est en anglais (« Part five. », « The correct answer is C. »),
 comme sur un enregistrement d'examen ; les explications restent en français, à
 l'écran, pour le coup d'œil d'après.
+
+### La correction rend le texte
+
+Pendant la question, l'écran s'en tient à ce que l'examen imprime. Une fois la
+réponse tombée, la règle n'a plus d'objet : c'est justement le moment de relire
+la phrase qui a résisté. La correction affiche donc **la transcription de tout ce
+qui a été prononcé** — la question de Part 2 (jamais imprimée), la conversation
+de Part 3 ou 4, la phrase de Part 5 enfin complétée, le document de Part 6 ou 7
+avec le trou concerné mis en évidence. L'écran se recale dessus tout seul, la
+réponse en haut et la transcription juste en dessous.
 
 ### Ce que ça exige du lecteur
 

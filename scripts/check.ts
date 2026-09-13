@@ -12,6 +12,8 @@ import { currentStreak, dayKey, partStats, weakestPart } from '../src/lib/stats'
 import { buildExamSession, examDurationSec, partWeights, buildMixedSession, buildPracticeSession, buildReviewSession } from '../src/lib/selection';
 import { QUESTION_BANK } from '../src/data/questions';
 import {
+  HANDS_FREE_PARTS,
+  PART_PRESETS,
   buildChapters,
   buildHandsFreeSession,
   handsFreeLines,
@@ -260,8 +262,9 @@ console.log(
 
 // Une séance doit tomber près de la durée demandée : trop courte, elle finit
 // avant la fin de la marche ; trop longue, elle ne tient pas dans la pause.
+const ALL_HF = HANDS_FREE_PARTS;
 for (const minutes of [5, 10, 20] as const) {
-  const plan = buildHandsFreeSession(DEFAULT_STATE, { minutes, scope: 'all', ...hfOpts });
+  const plan = buildHandsFreeSession(DEFAULT_STATE, { minutes, parts: ALL_HF, ...hfOpts });
   check(
     `séance de ${minutes} min : durée estimée dans la cible`,
     plan.seconds >= minutes * 60 * 0.8 && plan.seconds <= minutes * 60 * 1.2,
@@ -269,27 +272,76 @@ for (const minutes of [5, 10, 20] as const) {
   );
   check(`séance de ${minutes} min : aucun bloc en double`, new Set(plan.setIds).size === plan.setIds.length);
 }
+for (const preset of PART_PRESETS) {
+  const plan = buildHandsFreeSession(DEFAULT_STATE, { minutes: 10, parts: preset.parts, ...hfOpts });
+  check(
+    `raccourci « ${preset.label} » : aucune partie hors sélection`,
+    plan.chapters.every((c) => preset.parts.includes(c.part)),
+  );
+}
+// Le choix à la carte : une séance d'un seul type d'exercice doit tenir debout.
+for (const part of ALL_HF) {
+  const plan = buildHandsFreeSession(DEFAULT_STATE, { minutes: 10, parts: [part], ...hfOpts });
+  check(
+    `Part ${part} seule : séance non vide et homogène`,
+    plan.questionCount > 0 && plan.chapters.every((c) => c.part === part),
+    `${plan.questionCount} questions, ${Math.round(plan.seconds / 60)} min`,
+  );
+}
 check(
-  'le filtre listening ne sort que des parties audio',
-  buildHandsFreeSession(DEFAULT_STATE, { minutes: 10, scope: 'listening', ...hfOpts }).chapters.every(
-    (c) => c.part <= 4,
-  ),
+  'sélection vide → séance vide (le bouton reste désactivé)',
+  buildHandsFreeSession(DEFAULT_STATE, { minutes: 10, parts: [], ...hfOpts }).chapters.length === 0,
 );
+// L'alternance audio/lecture survit à n'importe quel sous-ensemble.
+const twoParts = buildHandsFreeSession(DEFAULT_STATE, { minutes: 10, parts: [2, 7], ...hfOpts });
 check(
-  'le filtre reading ne sort que des parties écrites',
-  buildHandsFreeSession(DEFAULT_STATE, { minutes: 10, scope: 'reading', ...hfOpts }).chapters.every(
-    (c) => c.part >= 5,
-  ),
+  'deux parties choisies : les deux sortent',
+  new Set(twoParts.chapters.map((c) => c.part)).size === 2,
+  [...new Set(twoParts.chapters.map((c) => c.part))],
 );
+
 // Un bloc déjà entendu passe en fin de file, comme après une session répondue.
-const firstPlan = buildHandsFreeSession(DEFAULT_STATE, { minutes: 5, scope: 'all', ...hfOpts });
+const firstPlan = buildHandsFreeSession(DEFAULT_STATE, { minutes: 5, parts: ALL_HF, ...hfOpts });
 const afterHeard = buildHandsFreeSession(
   { ...DEFAULT_STATE, heard: Object.fromEntries(firstPlan.setIds.map((id) => [id, now])) },
-  { minutes: 5, scope: 'all', ...hfOpts },
+  { minutes: 5, parts: ALL_HF, ...hfOpts },
 );
 check(
   'une séance ne resert pas ce qui vient d’être entendu',
   afterHeard.setIds.every((id) => !firstPlan.setIds.includes(id)),
+);
+
+// La correction doit pouvoir montrer le texte de ce qui a été prononcé : sans
+// ça, une conversation de Part 3 ne se relit nulle part.
+const questions = hfChapters.filter((c) => c.itemId);
+check(
+  'chaque question porte la transcription de ce qui a été lu',
+  questions.every((c) => {
+    const t = c.transcript;
+    if (!t) return false;
+    if (c.part === 2 || c.part === 3 || c.part === 4) return !!t.lines?.length;
+    if (c.part === 5) return !!t.sentence;
+    return !!t.passages?.length;
+  }),
+  questions.find((c) => !c.transcript)?.id,
+);
+check(
+  'Part 5 : la phrase transcrite est complétée, sans trou',
+  questions
+    .filter((c) => c.part === 5)
+    .every((c) => !!c.transcript?.sentence && !/-{2,}/.test(c.transcript.sentence)),
+);
+check(
+  'Part 6 : la transcription pointe le bon trou',
+  questions
+    .filter((c) => c.part === 6)
+    .every((c) => !!c.transcript?.blank && c.label.startsWith(`Trou ${c.transcript.blank} `)),
+);
+check(
+  'Part 2 : la transcription contient la question, jamais imprimée',
+  questions
+    .filter((c) => c.part === 2)
+    .every((c) => (c.transcript?.lines?.length ?? 0) === 4),
 );
 
 console.log('\n— Streak d’utilisation —');

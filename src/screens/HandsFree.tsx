@@ -8,21 +8,21 @@
 
 import { useMemo, useState } from 'react';
 import { useApp } from '../store';
-import type { HandsFreeScope } from '../types';
+import type { PartId } from '../types';
 import type { HandsFreePlan } from '../lib/handsFree';
-import { buildHandsFreeSession } from '../lib/handsFree';
+import { HANDS_FREE_PARTS, PART_PRESETS, buildHandsFreeSession } from '../lib/handsFree';
 import { primeAudio } from '../lib/handsFreePlayer';
+import { PARTS, sectionOf } from '../lib/toeic';
+import { allSets } from '../lib/selection';
 import { Page } from '../components/Shell';
-import { PageTitle } from '../components/ui';
-import { Headphones, Sound } from '../components/Icons';
+import { PageTitle, sectionColor } from '../components/ui';
+import { CheckCircle, Headphones, Sound } from '../components/Icons';
 
 const MINUTES = [5, 10, 15, 20];
 const THINK = [3, 5, 8];
-const SCOPES: { id: HandsFreeScope; label: string; hint: string }[] = [
-  { id: 'all', label: 'Tout', hint: 'Parts 2 à 7' },
-  { id: 'listening', label: 'Écoute', hint: 'Parts 2, 3, 4' },
-  { id: 'reading', label: 'Lecture', hint: 'Parts 5, 6, 7' },
-];
+
+const sameParts = (a: PartId[], b: PartId[]) =>
+  a.length === b.length && a.every((p) => b.includes(p));
 
 /** Rangée de choix exclusifs, format « pilule » comme le reste de l'app. */
 function Segmented<T extends string | number>({
@@ -75,21 +75,28 @@ function Segmented<T extends string | number>({
 export function HandsFree({ onStart }: { onStart: (plan: HandsFreePlan) => void }) {
   const { state, setSettings } = useApp();
   const { settings } = state;
-  const [scope, setScope] = useState<HandsFreeScope>(settings.handsFreeScope);
+  const [parts, setParts] = useState<PartId[]>(settings.handsFreeParts);
   const [minutes, setMinutes] = useState(settings.handsFreeMinutes);
   const [thinkSec, setThinkSec] = useState(settings.handsFreeThinkSec);
 
   // La séance affichée en aperçu est exactement celle qui va se jouer : elle
   // est tirée une seule fois, puis transmise telle quelle au lecteur.
   const plan = useMemo(
-    () => buildHandsFreeSession(state, { minutes, scope, thinkSec, rate: settings.speechRate }),
+    () => buildHandsFreeSession(state, { minutes, parts, thinkSec, rate: settings.speechRate }),
     // Le tirage ne doit pas rejouer à chaque frappe dans le store (il est
     // aléatoire) : seules les options de la séance le relancent.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [minutes, scope, thinkSec, settings.speechRate],
+    [minutes, parts, thinkSec, settings.speechRate],
   );
 
-  const parts = [...new Set(plan.chapters.map((c) => c.part))].sort();
+  const sets = useMemo(() => allSets(state), [state]);
+  const blocks = (part: PartId) => sets.filter((s) => s.part === part).length;
+  const drawn = [...new Set(plan.chapters.map((c) => c.part))].sort();
+
+  const toggle = (part: PartId) =>
+    setParts((cur) =>
+      cur.includes(part) ? cur.filter((p) => p !== part) : [...cur, part].sort(),
+    );
 
   const start = () => {
     if (!plan.chapters.length) return;
@@ -97,7 +104,7 @@ export function HandsFree({ onStart }: { onStart: (plan: HandsFreePlan) => void 
     // téléchargement des clips, le navigateur ne reconnaîtrait plus l'appui et
     // réclamerait un second tap avant de parler.
     primeAudio();
-    setSettings({ handsFreeMinutes: minutes, handsFreeThinkSec: thinkSec, handsFreeScope: scope });
+    setSettings({ handsFreeMinutes: minutes, handsFreeThinkSec: thinkSec, handsFreeParts: parts });
     onStart(plan);
   };
 
@@ -116,12 +123,75 @@ export function HandsFree({ onStart }: { onStart: (plan: HandsFreePlan) => void 
         value={minutes}
         onChange={setMinutes}
       />
-      <Segmented
-        label="Contenu"
-        options={SCOPES.map((s) => ({ id: s.id, label: s.label, sub: s.hint }))}
-        value={scope}
-        onChange={setScope}
-      />
+      <section className="card mb-3">
+        <div className="mb-4 flex items-baseline justify-between gap-4">
+          <h2 className="eyebrow">Contenu</h2>
+          <p className="text-[12px] text-muted tabular-nums">
+            {parts.length} partie{parts.length > 1 ? 's' : ''} sur {HANDS_FREE_PARTS.length}
+          </p>
+        </div>
+
+        {/* Raccourcis : ils ne font que remplir la sélection ci-dessous. */}
+        <div className="flex gap-2">
+          {PART_PRESETS.map((preset) => {
+            const on = sameParts(parts, preset.parts);
+            return (
+              <button
+                key={preset.id}
+                onClick={() => setParts(preset.parts)}
+                aria-pressed={on}
+                className={`flex-1 rounded-2xl border px-2 py-2.5 text-[14px] font-medium transition ${
+                  on
+                    ? 'border-navy bg-navy text-cream'
+                    : 'border-line bg-surface text-muted hover:border-navy/20'
+                }`}
+              >
+                {preset.label}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Choix à la carte : un type d'exercice précis quand on veut le travailler. */}
+        <div className="mt-2 grid grid-cols-2 gap-2">
+          {HANDS_FREE_PARTS.map((part) => {
+            const on = parts.includes(part);
+            const color = sectionColor(part);
+            return (
+              <button
+                key={part}
+                onClick={() => toggle(part)}
+                aria-pressed={on}
+                className="flex items-center gap-2.5 rounded-2xl border p-2.5 text-left transition"
+                style={{
+                  borderColor: on ? 'var(--color-navy)' : 'var(--color-line)',
+                  background: on
+                    ? 'color-mix(in srgb, var(--color-navy) 4%, var(--color-surface))'
+                    : 'var(--color-surface)',
+                }}
+              >
+                <span
+                  className="grid size-8 shrink-0 place-items-center rounded-full text-[12px] font-semibold"
+                  style={{
+                    background: on ? 'var(--color-navy)' : `color-mix(in srgb, ${color} 12%, var(--color-surface))`,
+                    color: on ? 'var(--color-cream)' : color,
+                  }}
+                >
+                  {on ? <CheckCircle size={15} /> : `P${part}`}
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-[13px] font-medium leading-tight text-navy">
+                    {PARTS[part].short}
+                  </span>
+                  <span className="block text-[11px] text-faint tabular-nums">
+                    {sectionOf(part) === 'listening' ? 'Écoute' : 'Lecture'} · {blocks(part)} blocs
+                  </span>
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </section>
       <Segmented
         label="Temps de réflexion"
         hint="après chaque question"
@@ -144,13 +214,17 @@ export function HandsFree({ onStart }: { onStart: (plan: HandsFreePlan) => void 
                 ≈ {Math.round(plan.seconds / 60)} min · {plan.questionCount} question
                 {plan.questionCount > 1 ? 's' : ''}
               </p>
+              {/* Les parties réellement tirées, pas celles cochées : une séance
+                  courte n'a pas la place de toutes les servir. */}
               <p className="mt-0.5 text-[12.5px] text-muted">
-                Part{parts.length > 1 ? 's' : ''} {parts.join(', ')} · {plan.setIds.length} bloc
+                Part{drawn.length > 1 ? 's' : ''} {drawn.join(', ')} · {plan.setIds.length} bloc
                 {plan.setIds.length > 1 ? 's' : ''}
               </p>
             </>
           ) : (
-            <p className="text-[14px] text-muted">Aucun contenu disponible pour ce choix.</p>
+            <p className="text-[14px] text-muted">
+              {parts.length ? 'Aucun contenu disponible pour ce choix.' : 'Choisis au moins une partie.'}
+            </p>
           )}
         </div>
       </section>

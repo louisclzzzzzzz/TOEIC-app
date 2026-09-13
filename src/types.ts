@@ -123,7 +123,10 @@ export interface QuestionSet {
 
 export type SessionMode = 'practice' | 'mixed' | 'review' | 'exam';
 
-/** Parties tirées par une séance du mode Écoute : tout, l'oral seul, l'écrit seul. */
+/**
+ * Raccourcis de sélection du mode Écoute : tout, l'oral seul, l'écrit seul.
+ * Ce ne sont que des boutons — la séance est définie par une liste de parties.
+ */
 export type HandsFreeScope = 'all' | 'listening' | 'reading';
 
 /** Une réponse donnée. Toutes les stats du dashboard dérivent de cette liste. */
@@ -222,8 +225,8 @@ export interface Settings {
   handsFreeMinutes: number;
   /** Mode Écoute : silence laissé pour répondre dans sa tête, en secondes. */
   handsFreeThinkSec: number;
-  /** Mode Écoute : parties tirées. */
-  handsFreeScope: HandsFreeScope;
+  /** Mode Écoute : parties tirées (la Part 1 n'y figure jamais). */
+  handsFreeParts: PartId[];
 }
 
 export interface AppState {

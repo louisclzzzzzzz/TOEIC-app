@@ -87,6 +87,24 @@ export interface Chapter {
   question?: { prompt?: string; choices: Choice[]; printed: boolean };
   /** Ce que l'écran révèle quand la réponse tombe. */
   reveal?: { answer: Letter; text: string; explanation: string; category: string };
+  /**
+   * Transcription de ce qui a été prononcé, montrée avec la réponse.
+   *
+   * Pendant la question, l'écran s'en tient à ce que l'examen imprime. Une fois
+   * la réponse donnée, la règle n'a plus lieu d'être : c'est le moment où l'on
+   * veut relire la phrase qu'on n'a pas comprise, et le document ne tient plus
+   * sous les yeux puisque la question a défilé.
+   */
+  transcript?: {
+    /** Part 2, 3, 4 : les répliques entendues, dans l'ordre. */
+    lines?: AudioLine[];
+    /** Part 6, 7 : le ou les documents, dans leur mise en page. */
+    passages?: Passage[];
+    /** Part 6 : trou concerné, mis en évidence dans le document. */
+    blank?: number;
+    /** Part 5 : la phrase une fois complétée par la bonne réponse. */
+    sentence?: string;
+  };
   /** Durée estimée, en secondes (voir `CHARS_PER_SECOND`). */
   seconds: number;
 }
@@ -394,10 +412,30 @@ export function buildChapters(set: QuestionSet, opts: ScriptOptions): Chapter[] 
         explanation: item.explanation,
         category: item.category,
       },
+      transcript: transcriptOf(set, item, i),
     });
   }
 
   return chapters;
+}
+
+/**
+ * Ce que la correction donne à relire : le texte de tout ce qui a été prononcé
+ * avant la question. En Part 2 c'est la question elle-même (jamais imprimée),
+ * en Part 3/4 la conversation, en Part 5 la phrase enfin complète, en Part 6/7
+ * le document — qui a défilé depuis longtemps quand la réponse tombe.
+ */
+function transcriptOf(set: QuestionSet, item: QuestionItem, index: number): Chapter['transcript'] {
+  if (set.part === 2) return { lines: item.audio };
+  if (set.part === 3 || set.part === 4) return { lines: set.audio };
+  if (set.part === 5 && item.prompt) {
+    const right = item.choices.find((c) => c.id === item.answer)!;
+    return { sentence: item.prompt.replace(BLANK_MARK, right.text) };
+  }
+  if (set.passages?.length) {
+    return { passages: set.passages, blank: set.part === 6 ? index + 1 : undefined };
+  }
+  return undefined;
 }
 
 /* ------------------------------------------------------------------ */
@@ -409,13 +447,17 @@ export function buildChapters(set: QuestionSet, opts: ScriptOptions): Chapter[] 
  *
  * Volontairement alterné (audio, lecture, audio, lecture…) plutôt que dans
  * l'ordre de l'examen : dix minutes de Part 7 d'affilée dans les oreilles, en
- * marchant, ne tiennent pas. L'alternance relance l'attention.
+ * marchant, ne tiennent pas. L'alternance relance l'attention. Filtrer cet
+ * ordre par la sélection la préserve quel que soit le sous-ensemble choisi.
  */
-const ROTATION: Record<HandsFreeScope, PartId[]> = {
-  all: [2, 5, 3, 6, 4, 7],
-  listening: [2, 3, 4],
-  reading: [5, 6, 7],
-};
+const ROTATION: PartId[] = [2, 5, 3, 6, 4, 7];
+
+/** Sélections courantes, proposées en raccourci devant le choix par partie. */
+export const PART_PRESETS: { id: HandsFreeScope; label: string; parts: PartId[] }[] = [
+  { id: 'all', label: 'Tout', parts: [2, 3, 4, 5, 6, 7] },
+  { id: 'listening', label: 'Écoute', parts: [2, 3, 4] },
+  { id: 'reading', label: 'Lecture', parts: [5, 6, 7] },
+];
 
 export interface HandsFreePlan {
   chapters: Chapter[];
@@ -429,7 +471,8 @@ export interface HandsFreePlan {
 export interface PlanOptions extends ScriptOptions {
   /** Durée visée, en minutes. */
   minutes: number;
-  scope: HandsFreeScope;
+  /** Parties tirées. Les raccourcis (tout / écoute / lecture) la remplissent. */
+  parts: PartId[];
 }
 
 /**
@@ -443,8 +486,9 @@ export function buildHandsFreeSession(state: AppState, opts: PlanOptions): Hands
   const sets = allSets(state);
   const target = opts.minutes * 60;
 
+  const wanted = ROTATION.filter((p) => opts.parts.includes(p));
   const pools = new Map<PartId, QuestionSet[]>();
-  for (const part of ROTATION[opts.scope]) {
+  for (const part of wanted) {
     const pool = byFreshness(
       sets.filter((s) => s.part === part),
       state.attempts,
@@ -461,7 +505,7 @@ export function buildHandsFreeSession(state: AppState, opts: PlanOptions): Hands
 
   while (seconds < target && pools.size && guard < 300) {
     guard += 1;
-    const rotation = ROTATION[opts.scope].filter((p) => pools.has(p));
+    const rotation = wanted.filter((p) => pools.has(p));
     const part = rotation[cursor++ % rotation.length];
     const pool = pools.get(part)!;
     const set = pool.shift()!;

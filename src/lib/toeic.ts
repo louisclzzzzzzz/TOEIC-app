@@ -7,6 +7,9 @@ export interface PartMeta {
   section: Section;
   /** Nom officiel anglais de la partie. */
   name: string;
+  /** Nom français court, pour les listes serrées (sélecteurs, grilles). */
+  short: string;
+  /** `Part N · <short>`, forme longue affichée dans les étiquettes. */
   label: string;
   /** Description courte affichée dans le menu practice. */
   hint: string;
@@ -21,6 +24,7 @@ export const PARTS: Record<PartId, PartMeta> = {
     id: 1,
     section: 'listening',
     name: 'Photographs',
+    short: 'Photos',
     label: 'Part 1 · Photos',
     hint: 'Choisir la phrase qui décrit correctement une image',
     realCount: 6,
@@ -30,6 +34,7 @@ export const PARTS: Record<PartId, PartMeta> = {
     id: 2,
     section: 'listening',
     name: 'Question-Response',
+    short: 'Questions-Réponses',
     label: 'Part 2 · Questions-Réponses',
     hint: '100 % audio : une question, trois réponses possibles',
     realCount: 25,
@@ -39,6 +44,7 @@ export const PARTS: Record<PartId, PartMeta> = {
     id: 3,
     section: 'listening',
     name: 'Conversations',
+    short: 'Conversations',
     label: 'Part 3 · Conversations',
     hint: 'Un dialogue, trois questions',
     realCount: 39,
@@ -48,6 +54,7 @@ export const PARTS: Record<PartId, PartMeta> = {
     id: 4,
     section: 'listening',
     name: 'Talks',
+    short: 'Monologues',
     label: 'Part 4 · Monologues',
     hint: 'Annonce ou message vocal, trois questions',
     realCount: 30,
@@ -57,6 +64,7 @@ export const PARTS: Record<PartId, PartMeta> = {
     id: 5,
     section: 'reading',
     name: 'Incomplete Sentences',
+    short: 'Phrases à trous',
     label: 'Part 5 · Phrases à trous',
     hint: 'Grammaire et vocabulaire, une phrase à compléter',
     realCount: 30,
@@ -66,6 +74,7 @@ export const PARTS: Record<PartId, PartMeta> = {
     id: 6,
     section: 'reading',
     name: 'Text Completion',
+    short: 'Textes à trous',
     label: 'Part 6 · Textes à trous',
     hint: 'Un court document, quatre trous dont une phrase entière',
     realCount: 16,
@@ -75,6 +84,7 @@ export const PARTS: Record<PartId, PartMeta> = {
     id: 7,
     section: 'reading',
     name: 'Reading Comprehension',
+    short: 'Compréhension écrite',
     label: 'Part 7 · Compréhension écrite',
     hint: 'Passages simples, doubles ou triples',
     realCount: 54,

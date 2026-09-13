@@ -14,13 +14,14 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { HandsFreePlan } from '../lib/handsFree';
+import type { PartId } from '../types';
+import type { Chapter, HandsFreePlan } from '../lib/handsFree';
 import type { PlayerState } from '../lib/handsFreePlayer';
 import { HandsFreePlayer } from '../lib/handsFreePlayer';
 import { PARTS } from '../lib/toeic';
 import { stopPlayback } from '../lib/tts';
 import { useApp } from '../store';
-import { SentenceWithBlank, withBlanks } from '../components/Passage';
+import { PassageView, SentenceWithBlank, withBlanks } from '../components/Passage';
 import { FlowHeader, PartTag, ProgressBar, Tag } from '../components/ui';
 import { CheckCircle, Headphones, Pause, Play, SkipBack, SkipForward } from '../components/Icons';
 
@@ -33,6 +34,55 @@ interface Props {
 function remainingLabel(seconds: number): string {
   if (seconds <= 45) return 'presque fini';
   return `≈ ${Math.max(1, Math.round(seconds / 60))} min`;
+}
+
+/**
+ * Le texte de ce qui a été prononcé, donné une fois la réponse tombée.
+ *
+ * Pendant la question, l'écran s'en tient à ce que l'examen imprime. Après, la
+ * règle n'a plus d'objet : c'est le moment de relire la phrase qui a résisté,
+ * et le document a défilé depuis longtemps.
+ */
+function Transcript({ transcript, part }: { transcript: Chapter['transcript']; part: PartId }) {
+  if (!transcript) return null;
+  const { lines, passages, blank, sentence } = transcript;
+
+  return (
+    <div className="animate-rise mt-3 space-y-3">
+      {sentence && (
+        <div className="card">
+          <p className="eyebrow mb-2">Phrase complète</p>
+          <p className="font-display text-[17px] leading-relaxed text-navy">{sentence}</p>
+        </div>
+      )}
+
+      {!!lines?.length && (
+        <div className="card">
+          <p className="eyebrow mb-2.5">Transcription</p>
+          <div className="space-y-1.5 text-[14.5px] leading-relaxed text-ink">
+            {lines.map((line, i) => (
+              <p key={i}>
+                {line.speaker && (
+                  <span className="mr-1.5 font-medium text-navy">{line.speaker} —</span>
+                )}
+                {line.text}
+              </p>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {passages?.map((passage, i) => (
+        <PassageView
+          key={i}
+          passage={passage}
+          index={i}
+          total={passages.length}
+          highlightBlank={part === 6 ? blank : undefined}
+        />
+      ))}
+    </div>
+  );
 }
 
 export function HandsFreeSession({ plan, onExit }: Props) {
@@ -150,11 +200,17 @@ export function HandsFreeSession({ plan, onExit }: Props) {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, [pos.chapter]);
 
+  const answering = plan.chapters[pos.chapter]?.beats[pos.beat]?.role === 'answer';
   useEffect(() => {
-    // `nearest` : on ne bouge que si l'élément est hors de vue, sinon la page
-    // sautillerait à chaque réplique.
-    spot.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-  }, [pos.chapter, pos.beat]);
+    spot.current?.scrollIntoView({
+      // À la correction, la réponse se cale en haut : la transcription qui la
+      // suit entre dans l'écran sans avoir à la chercher. Le reste du temps,
+      // `nearest` ne bouge que si l'élément est hors de vue — sinon la page
+      // sautillerait à chaque réplique.
+      block: answering ? 'start' : 'nearest',
+      behavior: 'smooth',
+    });
+  }, [pos.chapter, pos.beat, answering]);
 
   useEffect(() => {
     if (!('mediaSession' in navigator)) return;
@@ -368,6 +424,10 @@ export function HandsFreeSession({ plan, onExit }: Props) {
                     {chapter.reveal.category}
                   </p>
                 </div>
+              )}
+
+              {revealed && chapter.transcript && (
+                <Transcript transcript={chapter.transcript} part={chapter.part} />
               )}
             </>
           ) : chapter && chapter.part <= 4 ? (

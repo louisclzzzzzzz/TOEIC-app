@@ -28,7 +28,7 @@ export const DEFAULT_STATE: AppState = {
     sessionLength: 10,
     handsFreeMinutes: 10,
     handsFreeThinkSec: 5,
-    handsFreeScope: 'all',
+    handsFreeParts: [2, 3, 4, 5, 6, 7],
   },
 };
 
@@ -45,6 +45,11 @@ export function loadState(): AppState {
       settings: {
         ...DEFAULT_STATE.settings,
         ...(parsed.settings ?? {}),
+        // Une sélection vide (réglage d'une version antérieure, écriture
+        // interrompue) rendrait le mode Écoute impossible à démarrer.
+        handsFreeParts: parsed.settings?.handsFreeParts?.length
+          ? parsed.settings.handsFreeParts
+          : DEFAULT_STATE.settings.handsFreeParts,
       },
       errors: parsed.errors ?? {},
       vocab: parsed.vocab ?? {},
